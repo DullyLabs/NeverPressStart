@@ -15,13 +15,15 @@ make run      # build, then launch build/NeverPressStart.app/Contents/MacOS/Neve
 make clean
 ```
 
-The app runs only from the `build/` folder. Nothing is installed to /Applications or registered with the system.
+Copy `build/NeverPressStart.app` to /Applications to use it day to day; launch at login is only set up from there, never for `build/`.
 
 ## Behaviour
 
 - The menu bar shows the time left as `mm:ss`. A pause glyph means paused, a moon means idle, "zzz" with a countdown means a long snooze, and a cup means you're on a break.
-- The menu has Pause/Resume, Reset timer, Take break now, Snooze 1 hour and Quit.
-- Snooze 1 hour (the label follows `FOCUS_LONG_SNOOZE_SECONDS`) is for calls and presentations. The timer stops and nothing happens for an hour, then a fresh 20-minute period starts. Resume ends the snooze early. Idle, sleep and unlock don't cut it short.
+- The menu has Pause/Resume, Reset timer, Take break now, Snooze 1 hour, Settings… (⌘,) and Quit.
+- Settings sets the work period, break snooze, idle threshold and long snooze (in minutes). Changes apply from the next period. The `FOCUS_*` variables below override them.
+- Launch at login is on by default. It's turned on once, the first time the app runs from /Applications or ~/Applications; after that, the Settings toggle or System Settings > General > Login Items decides.
+- Snooze 1 hour is for calls and presentations. The timer stops and nothing happens for an hour, then a fresh 20-minute period starts. Resume ends the snooze early. Idle, sleep and unlock don't cut it short.
 - On the overlay, "Back to work" (or Return) and Esc start a fresh 20-minute period. "Snooze 5 min" starts a 5-minute one.
 - The overlay covers the menu bar on purpose, so the menu isn't reachable while it's up. The only ways out are Back to work, Snooze, Esc or Return, or killing the process (for example `pkill NeverPressStart` over SSH).
 - While the overlay is up, it comes back to the front every second, whenever the active Space changes (for example, when you switch into a full-screen app) and whenever displays change.
@@ -48,9 +50,6 @@ FOCUS_WORK_SECONDS=5 FOCUS_SNOOZE_SECONDS=10 FOCUS_IDLE_SECONDS=30 FOCUS_LONG_SN
 
 State transitions are logged to stderr with timestamps.
 
-## Autostart at login (not set up)
+## Launch at login
 
-The app doesn't autostart yet. There are two ways to add it later:
-
-1. `SMAppService.mainApp.register()` (macOS 13+), called from inside the app, for example from a menu toggle. This works best when the app has a stable location, such as /Applications, and it appears under System Settings > General > Login Items.
-2. A LaunchAgent at `~/Library/LaunchAgents/dev.dulangaj.NeverPressStart.plist` with `ProgramArguments` pointing at `.../build/NeverPressStart.app/Contents/MacOS/NeverPressStart` and `RunAtLoad` set to true, loaded with `launchctl bootstrap gui/$(id -u) <plist>`.
+`SMAppService.mainApp.register()` adds the app itself as a login item, no helper or LaunchAgent. The Settings toggle shows `SMAppService.mainApp.status`, so it always matches System Settings.
