@@ -8,6 +8,8 @@
 	<string>Never Press Start</string>
 	<key>CFBundleDisplayName</key>
 	<string>Never Press Start</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleExecutable</key>
 	<string>NeverPressStart</string>
 	<key>CFBundlePackageType</key>

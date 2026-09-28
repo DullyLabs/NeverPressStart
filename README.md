@@ -10,6 +10,7 @@ It needs no macOS permissions: no Accessibility, Input Monitoring, Screen Record
 
 ```sh
 make          # swift build -c release, assemble build/NeverPressStart.app, ad-hoc codesign
+make icon     # redraw Support/AppIcon.icns from Support/Icon/make-icon.swift
 make run      # build, then launch build/NeverPressStart.app/Contents/MacOS/NeverPressStart
 make clean
 ```
