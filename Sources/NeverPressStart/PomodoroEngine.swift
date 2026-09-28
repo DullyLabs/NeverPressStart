@@ -21,10 +21,11 @@ final class PomodoroEngine: NSObject {
         case overlay(since: Date)
     }
 
-    let workSeconds = PomodoroEngine.env("FOCUS_WORK_SECONDS", default: 20 * 60)
-    let snoozeSeconds = PomodoroEngine.env("FOCUS_SNOOZE_SECONDS", default: 5 * 60)
-    let idleSeconds = PomodoroEngine.env("FOCUS_IDLE_SECONDS", default: 5 * 60)
-    let longSnoozeSeconds = PomodoroEngine.env("FOCUS_LONG_SNOOZE_SECONDS", default: 60 * 60)
+    // Read at use time so Settings changes apply from the next period.
+    var workSeconds: TimeInterval { Setting.work.seconds }
+    var snoozeSeconds: TimeInterval { Setting.snooze.seconds }
+    var idleSeconds: TimeInterval { Setting.idle.seconds }
+    var longSnoozeSeconds: TimeInterval { Setting.longSnooze.seconds }
 
     private(set) var state: State = .paused(remaining: 0)
     var onStateChange: ((State) -> Void)?
@@ -141,10 +142,6 @@ final class PomodoroEngine: NSObject {
     /// kCGAnyInputEventType from the HID system state; readable without any TCC permission.
     private static func secondsSinceLastInput() -> TimeInterval {
         CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: CGEventType(rawValue: ~0)!)
-    }
-
-    private static func env(_ key: String, default value: TimeInterval) -> TimeInterval {
-        ProcessInfo.processInfo.environment[key].flatMap(TimeInterval.init).flatMap { $0 > 0 ? $0 : nil } ?? value
     }
 
     private static func name(of state: State) -> String {

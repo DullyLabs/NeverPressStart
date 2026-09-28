@@ -1,15 +1,17 @@
 import AppKit
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let engine = PomodoroEngine()
     private lazy var overlay = OverlayController(
-        snoozeSeconds: engine.snoozeSeconds,
+        snoozeSeconds: { [weak self] in self?.engine.snoozeSeconds ?? 0 },
         onBackToWork: { [weak self] in self?.engine.backToWork() },
         onSnooze: { [weak self] in self?.engine.snooze() }
     )
     private var statusItem: NSStatusItem!
     private let pauseItem = NSMenuItem(title: "Pause", action: #selector(togglePause), keyEquivalent: "")
+    private let longSnoozeItem = NSMenuItem(title: "", action: #selector(longSnooze), keyEquivalent: "")
+    private lazy var settingsWindow = SettingsWindowController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -20,11 +22,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(pauseItem)
         menu.addItem(NSMenuItem(title: "Reset timer", action: #selector(reset), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Take break now", action: #selector(breakNow), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Snooze \(Self.duration(engine.longSnoozeSeconds))", action: #selector(longSnooze), keyEquivalent: ""))
+        menu.addItem(longSnoozeItem)
         menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Quit Never Press Start", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         menu.items.filter { $0.action != #selector(NSApplication.terminate(_:)) }.forEach { $0.target = self }
         menu.autoenablesItems = false   // otherwise pauseItem.isEnabled is ignored
+        menu.delegate = self
         statusItem.menu = menu
 
         engine.onStateChange = { [weak self] state in self?.stateChanged(state) }
@@ -35,6 +39,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
 
         engine.start()
+        LoginItem.setUpOnFirstLaunch()
+        NSApp.mainMenu = Self.mainMenu()
+    }
+
+    /// Never shown (LSUIElement), but it routes ⌘Q, ⌘W and the edit shortcuts to the Settings window.
+    private static func mainMenu() -> NSMenu {
+        func submenu(_ title: String, _ items: [(String, Selector, String)]) -> NSMenuItem {
+            let menu = NSMenu(title: title)
+            items.forEach { menu.addItem(withTitle: $0.0, action: $0.1, keyEquivalent: $0.2) }
+            let item = NSMenuItem()
+            item.submenu = menu
+            return item
+        }
+        let main = NSMenu()
+        main.addItem(submenu("Never Press Start", [("Quit Never Press Start", #selector(NSApplication.terminate(_:)), "q")]))
+        main.addItem(submenu("File", [("Close", #selector(NSWindow.performClose(_:)), "w")]))
+        main.addItem(submenu("Edit", [
+            ("Undo", Selector(("undo:")), "z"),
+            ("Redo", Selector(("redo:")), "Z"),
+            ("Cut", #selector(NSText.cut(_:)), "x"),
+            ("Copy", #selector(NSText.copy(_:)), "c"),
+            ("Paste", #selector(NSText.paste(_:)), "v"),
+            ("Select All", #selector(NSText.selectAll(_:)), "a"),
+        ]))
+        return main
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        longSnoozeItem.title = "Snooze \(Self.duration(engine.longSnoozeSeconds))"
     }
 
     private func stateChanged(_ state: PomodoroEngine.State) {
@@ -87,6 +120,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func reset() { engine.reset() }
     @objc private func breakNow() { engine.breakNow() }
     @objc private func longSnooze() { engine.longSnooze() }
+    @objc private func openSettings() { settingsWindow.show() }
 
     @objc private func screensChanged() {
         // Rebuild so each display (including newly attached ones) gets a window.

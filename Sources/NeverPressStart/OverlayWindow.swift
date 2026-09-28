@@ -93,11 +93,11 @@ final class OverlayController: NSObject {
     private var since = Date()
     private let onBackToWork: () -> Void
     private let onSnooze: () -> Void
-    private let snoozeMinutes: Int
+    private let snoozeSeconds: () -> TimeInterval
     private lazy var escape = HotKey(keyCode: kVK_Escape) { [weak self] in self?.onBackToWork() }
 
-    init(snoozeSeconds: TimeInterval, onBackToWork: @escaping () -> Void, onSnooze: @escaping () -> Void) {
-        self.snoozeMinutes = max(1, Int((snoozeSeconds / 60).rounded()))
+    init(snoozeSeconds: @escaping () -> TimeInterval, onBackToWork: @escaping () -> Void, onSnooze: @escaping () -> Void) {
+        self.snoozeSeconds = snoozeSeconds
         self.onBackToWork = onBackToWork
         self.onSnooze = onSnooze
     }
@@ -113,6 +113,7 @@ final class OverlayController: NSObject {
     func show(since: Date) {
         self.since = since
         windows.forEach { $0.orderOut(nil) }
+        let snoozeMinutes = max(1, Int((snoozeSeconds() / 60).rounded()))
         windows = NSScreen.screens.map {
             OverlayWindow(screen: $0, onBackToWork: onBackToWork, onSnooze: onSnooze, snoozeMinutes: snoozeMinutes)
         }
