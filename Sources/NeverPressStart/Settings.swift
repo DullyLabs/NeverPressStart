@@ -104,6 +104,7 @@ final class LoginItem: ObservableObject {
 private struct MinutesRow: View {
     let setting: Setting
     @AppStorage private var minutes: Int
+    @FocusState private var focused: Bool
 
     init(_ setting: Setting) {
         self.setting = setting
@@ -117,14 +118,19 @@ private struct MinutesRow: View {
                     .labelsHidden()
                     .multilineTextAlignment(.trailing)
                     .frame(width: 48)
+                    .focused($focused)
+                    .onSubmit(commit)
                 Stepper(setting.title, value: $minutes, in: setting.range, step: setting.step)
                     .labelsHidden()
                 Text("min")
             }
         }
         .disabled(setting.envOverride != nil)
-        .onChange(of: minutes) { _, new in minutes = setting.clamp(new) }
+        // Clamp on commit, not per keystroke, so e.g. "30" can be typed into a 5...480 field.
+        .onChange(of: focused) { _, isFocused in if !isFocused { commit() } }
     }
+
+    private func commit() { minutes = setting.clamp(minutes) }
 }
 
 private struct SettingsView: View {
@@ -169,6 +175,8 @@ final class SettingsWindowController: NSWindowController {
         super.init(window: window)
         NotificationCenter.default.addObserver(
             self, selector: #selector(becameKey), name: NSWindow.didBecomeKeyNotification, object: window)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(willClose), name: NSWindow.willCloseNotification, object: window)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
@@ -179,4 +187,7 @@ final class SettingsWindowController: NSWindowController {
     }
 
     @objc private func becameKey() { loginItem.refresh() }
+
+    /// Ends editing so a typed value is committed (and clamped) when the window closes.
+    @objc private func willClose() { window?.makeFirstResponder(nil) }
 }
