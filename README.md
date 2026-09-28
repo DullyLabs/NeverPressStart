@@ -1,2 +1,55 @@
-# NeverPressStart
-A pomodoro timer for people who keep forgetting to press start
+# Never Press Start
+
+A pomodoro timer for people who keep forgetting to press start.
+
+A macOS menu-bar Pomodoro timer that starts itself. It runs a 20-minute work timer, and when the timer finishes it covers every display with a full-screen "Take a break" overlay, including full-screen apps and every Space. The overlay stays up until you dismiss it.
+
+It needs no macOS permissions: no Accessibility, Input Monitoring, Screen Recording or notifications.
+
+## Build and run
+
+```sh
+make          # swift build -c release, assemble build/NeverPressStart.app, ad-hoc codesign
+make run      # build, then launch build/NeverPressStart.app/Contents/MacOS/NeverPressStart
+make clean
+```
+
+The app runs only from the `build/` folder. Nothing is installed to /Applications or registered with the system.
+
+## Behaviour
+
+- The menu bar shows the time left as `mm:ss`. A pause glyph means paused, a moon means idle, "zzz" with a countdown means a long snooze, and a cup means you're on a break.
+- The menu has Pause/Resume, Reset timer, Take break now, Snooze 1 hour and Quit.
+- Snooze 1 hour (the label follows `FOCUS_LONG_SNOOZE_SECONDS`) is for calls and presentations. The timer stops and nothing happens for an hour, then a fresh 20-minute period starts. Resume ends the snooze early. Idle, sleep and unlock don't cut it short.
+- On the overlay, "Back to work" (or Return) and Esc start a fresh 20-minute period. "Snooze 5 min" starts a 5-minute one.
+- The overlay covers the menu bar on purpose, so the menu isn't reachable while it's up. The only ways out are Back to work, Snooze, Esc or Return, or killing the process (for example `pkill NeverPressStart` over SSH).
+- While the overlay is up, it comes back to the front every second, whenever the active Space changes (for example, when you switch into a full-screen app) and whenever displays change.
+- If there's no keyboard or mouse input for 5 minutes, that counts as a break. The timer stops and restarts at 20 minutes when input resumes. Idle time never brings up the overlay.
+- Waking from sleep, waking the screen, unlocking or switching back to the user session also restarts the timer at 20 minutes. A manual pause is kept.
+
+### Why no permissions are needed
+
+| Need | API | Permission |
+| --- | --- | --- |
+| Overlay above everything | non-activating `NSPanel` at `.screenSaver` level with `.canJoinAllSpaces`, `.fullScreenAuxiliary` and `.canJoinAllApplications`. It is brought to the front every second and when the Space or frontmost app changes. It never activates the app or uses native full screen. | none |
+| Esc to dismiss | Carbon `RegisterEventHotKey`, registered only while the overlay is up | none |
+| Idle detection | `CGEventSource.secondsSinceLastEventType(.hidSystemState, ...)` | none |
+| Sleep/lock detection | `NSWorkspace` and `DistributedNotificationCenter` notifications | none |
+
+## Testing overrides
+
+Environment variables, in seconds:
+
+```sh
+FOCUS_WORK_SECONDS=5 FOCUS_SNOOZE_SECONDS=10 FOCUS_IDLE_SECONDS=30 FOCUS_LONG_SNOOZE_SECONDS=20 \
+  build/NeverPressStart.app/Contents/MacOS/NeverPressStart
+```
+
+State transitions are logged to stderr with timestamps.
+
+## Autostart at login (not set up)
+
+The app doesn't autostart yet. There are two ways to add it later:
+
+1. `SMAppService.mainApp.register()` (macOS 13+), called from inside the app, for example from a menu toggle. This works best when the app has a stable location, such as /Applications, and it appears under System Settings > General > Login Items.
+2. A LaunchAgent at `~/Library/LaunchAgents/dev.dulangaj.NeverPressStart.plist` with `ProgramArguments` pointing at `.../build/NeverPressStart.app/Contents/MacOS/NeverPressStart` and `RunAtLoad` set to true, loaded with `launchctl bootstrap gui/$(id -u) <plist>`.
