@@ -3,7 +3,6 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSTextFieldDelegate {
     private static let focusKey = "focus"
-    private static let focusMaxLength = 10
 
     private let engine = PomodoroEngine()
     private lazy var overlay = OverlayController(
@@ -29,7 +28,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
 
         let menu = NSMenu()
         menu.addItem(makeFocusItem())
-        menu.addItem(.separator())
         menu.addItem(pauseItem)
         menu.addItem(NSMenuItem(title: "Reset timer", action: #selector(reset), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Take break now", action: #selector(breakNow), keyEquivalent: ""))
@@ -107,7 +105,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
     private func setStatus(symbol: String?, text: String) {
         guard let button = statusItem.button else { return }
         button.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
-        button.title = [text, focus].filter { !$0.isEmpty }.joined(separator: " ")
+        button.title = [text, FocusDisplay.displayed(focus)].filter { !$0.isEmpty }.joined(separator: " ")
     }
 
     private func makeFocusItem() -> NSMenuItem {
@@ -164,12 +162,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
 
     private func focusEdited(_ editor: NSTextView) {
         guard !editor.hasMarkedText() else { return }   // let an IME finish composing first
-        if editor.string.count > Self.focusMaxLength {
-            let selection = editor.selectedRange()
-            editor.string = String(editor.string.prefix(Self.focusMaxLength))
-            let length = (editor.string as NSString).length
-            editor.setSelectedRange(NSRange(location: min(selection.location, length), length: 0))
-        }
         focus = editor.string.trimmingCharacters(in: .whitespacesAndNewlines)
         updateStatus()
     }

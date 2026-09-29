@@ -60,6 +60,24 @@ enum Setting: String, CaseIterable, Identifiable {
     }
 }
 
+/// How many characters of the current focus the menu bar shows.
+enum FocusDisplay {
+    static let key = "focusDisplayLength"
+    static let title = "Characters shown in menu bar"
+    static let defaultLength = 10
+    static let range = 1...40
+
+    static func clamp(_ length: Int) -> Int { min(max(length, range.lowerBound), range.upperBound) }
+
+    static var length: Int { clamp(UserDefaults.standard.object(forKey: key) as? Int ?? defaultLength) }
+
+    static func displayed(_ focus: String) -> String {
+        var prefix = focus.prefix(length)
+        while prefix.last?.isWhitespace == true { prefix.removeLast() }
+        return String(prefix)
+    }
+}
+
 /// Launch at login via SMAppService. The system is the source of truth; nothing is cached here.
 @MainActor
 final class LoginItem: ObservableObject {
@@ -133,6 +151,29 @@ private struct MinutesRow: View {
     private func commit() { minutes = setting.clamp(minutes) }
 }
 
+private struct FocusLengthRow: View {
+    @AppStorage(FocusDisplay.key) private var length = FocusDisplay.defaultLength
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        LabeledContent(FocusDisplay.title) {
+            HStack(spacing: 4) {
+                TextField(FocusDisplay.title, value: $length, format: .number)
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 48)
+                    .focused($focused)
+                    .onSubmit(commit)
+                Stepper(FocusDisplay.title, value: $length, in: FocusDisplay.range)
+                    .labelsHidden()
+            }
+        }
+        .onChange(of: focused) { _, isFocused in if !isFocused { commit() } }
+    }
+
+    private func commit() { length = FocusDisplay.clamp(length) }
+}
+
 private struct SettingsView: View {
     @ObservedObject var loginItem: LoginItem
 
@@ -142,6 +183,9 @@ private struct SettingsView: View {
                 ForEach(Setting.allCases) { MinutesRow($0) }
             } footer: {
                 Text("Work and snooze changes apply from the next period.").foregroundStyle(.secondary)
+            }
+            Section {
+                FocusLengthRow()
             }
             Section {
                 Toggle("Launch at login", isOn: Binding(get: { loginItem.isOn }, set: { loginItem.set($0) }))

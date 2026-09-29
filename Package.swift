@@ -5,6 +5,7 @@ let package = Package(
     name: "NeverPressStart",
     platforms: [.macOS(.v14)],
     targets: [
-        .executableTarget(name: "NeverPressStart")
+        .executableTarget(name: "NeverPressStart"),
+        .testTarget(name: "NeverPressStartTests", dependencies: ["NeverPressStart"]),
     ]
 )
