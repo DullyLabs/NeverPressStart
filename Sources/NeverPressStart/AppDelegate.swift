@@ -48,7 +48,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
 
         engine.start()
-        LoginItem.setUpOnFirstLaunch()
         NSApp.mainMenu = Self.mainMenu()
     }
 

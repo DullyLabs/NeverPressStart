@@ -14,7 +14,7 @@ app: build
 	cp "$(BIN_DIR)/NeverPressStart" $(APP)/Contents/MacOS/NeverPressStart
 	cp Support/Info.plist $(APP)/Contents/Info.plist
 	cp Support/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
-	codesign --force --deep --sign - $(APP)
+	codesign --force --sign - $(APP)
 
 icon:
 	rm -rf .build/AppIcon.iconset
