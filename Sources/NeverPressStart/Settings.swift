@@ -98,25 +98,6 @@ final class LoginItem: ObservableObject {
         refresh()
         log("launch at login \(on ? "on" : "off"): status=\(status.rawValue)")
     }
-
-    /// Default on: register once, on the first launch from an Applications folder (not build/),
-    /// and never again, so turning it off sticks.
-    static func setUpOnFirstLaunch() {
-        let key = "didInitialLoginItemSetup"
-        guard !UserDefaults.standard.bool(forKey: key) else { return }
-        let parent = Bundle.main.bundleURL.deletingLastPathComponent().standardizedFileURL
-        let appDirs = FileManager.default.urls(for: .applicationDirectory, in: [.localDomainMask, .userDomainMask])
-        guard appDirs.map(\.standardizedFileURL).contains(parent) else {
-            return log("not in an Applications folder; skipping login item setup")
-        }
-        do {
-            try SMAppService.mainApp.register()
-            UserDefaults.standard.set(true, forKey: key)
-            log("registered login item on first launch")
-        } catch {
-            log("login item registration failed: \(error.localizedDescription)")
-        }
-    }
 }
 
 private struct NumberRow: View {

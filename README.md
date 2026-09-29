@@ -15,7 +15,7 @@ make run      # build, then launch build/NeverPressStart.app/Contents/MacOS/Neve
 make clean
 ```
 
-Copy `build/NeverPressStart.app` to /Applications to use it day to day; launch at login is only set up from there, never for `build/`.
+Copy `build/NeverPressStart.app` to /Applications to use it day to day.
 
 ## Behaviour
 
@@ -23,7 +23,7 @@ Copy `build/NeverPressStart.app` to /Applications to use it day to day; launch a
 - The menu has Pause/Resume, Take break now, Snooze 1 hour, Reset timer, Settings… (⌘,) and Quit.
 - The "Current focus" field at the top of the menu shows what you're working on next to the timer, cut to the first N characters (default 10, set by "Characters shown in menu bar" in Settings), for example `12:08 Article`. It updates as you type. Return closes the menu, Esc closes it and discards the edit. It's kept across relaunches.
 - Settings sets the work period, break snooze, idle threshold and long snooze (in minutes). Changes apply from the next period. The `FOCUS_*` variables below override them.
-- Launch at login is on by default. It's turned on once, the first time the app runs from /Applications or ~/Applications; after that, the Settings toggle or System Settings > General > Login Items decides.
+- Launch at login is off until you turn it on with the Settings toggle or in System Settings > General > Login Items.
 - Snooze 1 hour is for calls and presentations. The timer stops and nothing happens for an hour, then a fresh 20-minute period starts. Resume ends the snooze early. Idle, sleep and unlock don't cut it short.
 - On the overlay, "Back to work" (or Return) and Esc start a fresh 20-minute period. "Snooze 5 min" starts a 5-minute one.
 - The overlay covers the menu bar on purpose, so the menu isn't reachable while it's up. The only ways out are Back to work, Snooze, Esc or Return, or killing the process (for example `pkill NeverPressStart` over SSH).
