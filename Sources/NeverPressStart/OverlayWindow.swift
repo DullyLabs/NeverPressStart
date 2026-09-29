@@ -41,12 +41,14 @@ final class OverlayWindow: NSPanel {
         back.keyEquivalent = "\r"
         let snooze = ActionButton(title: "Snooze \(snoozeMinutes) min", action: onSnooze)
         let buttons = NSStackView(views: [snooze, back])
-        buttons.spacing = 16
+        buttons.spacing = 24
+        snooze.widthAnchor.constraint(equalTo: back.widthAnchor).isActive = true
+        snooze.setAccessibilityLabel("Snooze for \(snoozeMinutes) minutes")
 
         let stack = NSStackView(views: [title, elapsedLabel, buttons])
         stack.orientation = .vertical
         stack.spacing = 24
-        stack.setCustomSpacing(48, after: elapsedLabel)
+        stack.setCustomSpacing(64, after: elapsedLabel)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         let content = NSView()
@@ -72,9 +74,15 @@ private final class ActionButton: NSButton {
         self.handler = handler
         super.init(frame: .zero)
         self.title = title
-        bezelStyle = .rounded
-        controlSize = .large
-        font = .systemFont(ofSize: 18)
+        bezelStyle = .glass
+        controlSize = .extraLarge
+        tintProminence = .none   // Return key equivalent would otherwise tint "Back to work" blue
+        font = .systemFont(ofSize: 20, weight: .semibold)
+        translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: 56),
+            widthAnchor.constraint(greaterThanOrEqualToConstant: 220),
+        ])
         target = self
         action = #selector(fire)
     }
