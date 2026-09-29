@@ -60,6 +60,24 @@ enum Setting: String, CaseIterable, Identifiable {
     }
 }
 
+/// How many characters of the current focus the menu bar shows.
+enum FocusDisplay {
+    static let key = "focusDisplayLength"
+    static let title = "Characters shown in menu bar"
+    static let defaultLength = 10
+    static let range = 1...40
+
+    static func clamp(_ length: Int) -> Int { min(max(length, range.lowerBound), range.upperBound) }
+
+    static var length: Int { clamp(UserDefaults.standard.object(forKey: key) as? Int ?? defaultLength) }
+
+    static func displayed(_ focus: String) -> String {
+        var prefix = focus.split(whereSeparator: \.isNewline).joined(separator: " ").prefix(length)
+        while prefix.last?.isWhitespace == true { prefix.removeLast() }
+        return String(prefix)
+    }
+}
+
 /// Launch at login via SMAppService. The system is the source of truth; nothing is cached here.
 @MainActor
 final class LoginItem: ObservableObject {
@@ -101,36 +119,46 @@ final class LoginItem: ObservableObject {
     }
 }
 
-private struct MinutesRow: View {
-    let setting: Setting
-    @AppStorage private var minutes: Int
+private struct NumberRow: View {
+    let title: String
+    let range: ClosedRange<Int>
+    var step = 1
+    var unit: String?
+    var disabled = false
+    @AppStorage private var value: Int
     @FocusState private var focused: Bool
 
+    init(_ title: String, key: String, default defaultValue: Int, range: ClosedRange<Int>,
+         step: Int = 1, unit: String? = nil, disabled: Bool = false) {
+        (self.title, self.range, self.step, self.unit, self.disabled) = (title, range, step, unit, disabled)
+        _value = AppStorage(wrappedValue: defaultValue, key)
+    }
+
     init(_ setting: Setting) {
-        self.setting = setting
-        _minutes = AppStorage(wrappedValue: setting.defaultMinutes, setting.rawValue)
+        self.init(setting.title, key: setting.rawValue, default: setting.defaultMinutes, range: setting.range,
+                  step: setting.step, unit: "min", disabled: setting.envOverride != nil)
     }
 
     var body: some View {
-        LabeledContent(setting.title) {
+        LabeledContent(title) {
             HStack(spacing: 4) {
-                TextField(setting.title, value: $minutes, format: .number)
+                TextField(title, value: $value, format: .number)
                     .labelsHidden()
                     .multilineTextAlignment(.trailing)
                     .frame(width: 48)
                     .focused($focused)
                     .onSubmit(commit)
-                Stepper(setting.title, value: $minutes, in: setting.range, step: setting.step)
+                Stepper(title, value: $value, in: range, step: step)
                     .labelsHidden()
-                Text("min")
+                if let unit { Text(unit) }
             }
         }
-        .disabled(setting.envOverride != nil)
+        .disabled(disabled)
         // Clamp on commit, not per keystroke, so e.g. "30" can be typed into a 5...480 field.
         .onChange(of: focused) { _, isFocused in if !isFocused { commit() } }
     }
 
-    private func commit() { minutes = setting.clamp(minutes) }
+    private func commit() { value = min(max(value, range.lowerBound), range.upperBound) }
 }
 
 private struct SettingsView: View {
@@ -139,9 +167,13 @@ private struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                ForEach(Setting.allCases) { MinutesRow($0) }
+                ForEach(Setting.allCases) { NumberRow($0) }
             } footer: {
                 Text("Work and snooze changes apply from the next period.").foregroundStyle(.secondary)
+            }
+            Section {
+                NumberRow(FocusDisplay.title, key: FocusDisplay.key, default: FocusDisplay.defaultLength,
+                          range: FocusDisplay.range)
             }
             Section {
                 Toggle("Launch at login", isOn: Binding(get: { loginItem.isOn }, set: { loginItem.set($0) }))
