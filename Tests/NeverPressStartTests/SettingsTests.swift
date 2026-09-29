@@ -30,11 +30,15 @@ final class SettingsTests {
     @Test(arguments: Setting.allCases)
     func storedMinutesTakeEffect(_ setting: Setting) {
         let engine = PomodoroEngine()
-        #expect(setting.seconds == TimeInterval(setting.defaultMinutes * 60))
         let minutes = setting.range.lowerBound + setting.step
         defaults.set(minutes, forKey: setting.rawValue)
         #expect(setting.seconds == TimeInterval(minutes * 60))
         #expect(engineSeconds(setting, engine) == TimeInterval(minutes * 60))
+    }
+
+    @Test(arguments: Setting.allCases)
+    func missingValueFallsBackToDefault(_ setting: Setting) {
+        #expect(setting.seconds == TimeInterval(setting.defaultMinutes * 60))
     }
 
     @Test(arguments: Setting.allCases)
@@ -63,6 +67,10 @@ final class SettingsTests {
         #expect(FocusDisplay.displayed("Writing the article") == "Writ")
         defaults.set(8, forKey: FocusDisplay.key)
         #expect(FocusDisplay.displayed("Writing the article") == "Writing")   // trailing space trimmed
+    }
+
+    @Test func focusDisplayFlattensNewlines() {
+        #expect(FocusDisplay.displayed("ab\ncd") == "ab cd")
     }
 
     @Test func focusDisplayLengthIsClamped() {
