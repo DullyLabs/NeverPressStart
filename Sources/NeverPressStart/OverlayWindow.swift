@@ -38,7 +38,7 @@ final class OverlayWindow: NSPanel {
         extensionLabel.alignment = .center
         extensionLabel.preferredMaxLayoutWidth = 800
         extensionLabel.maximumNumberOfLines = 4   // a long gist can't push the buttons off screen
-        extensionLabel.lineBreakMode = .byTruncatingTail
+        extensionLabel.cell?.truncatesLastVisibleLine = true   // ellipsis on line 4 only; keeps word wrapping
         extensionLabel.isSelectable = false
         extensionLabel.isEditable = false
         extensionLabel.isHidden = true   // hidden views are detached from the stack, so layout is unchanged
