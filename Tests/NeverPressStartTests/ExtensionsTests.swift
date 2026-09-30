@@ -25,6 +25,11 @@ struct ExtensionsTests {
         #expect(HourlyJoke.joke(from: Data("  What am I?\n\n".utf8), status: 200) == "What am I?")
     }
 
+    @Test func jokeIsCapped() {
+        let long = String(repeating: "a", count: HourlyJoke.maxLength + 50)
+        #expect(HourlyJoke.joke(from: Data(long.utf8), status: 200)?.count == HourlyJoke.maxLength)
+    }
+
     @Test func emptyOrErrorResponseIsIgnored() {
         #expect(HourlyJoke.joke(from: Data(" \n".utf8), status: 200) == nil)
         #expect(HourlyJoke.joke(from: Data("Not Found".utf8), status: 404) == nil)

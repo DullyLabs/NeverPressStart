@@ -27,7 +27,7 @@ struct HourlyJoke: OverlayExtension {
 
     let id = "hourlyJoke"
     let title = "Hourly joke"
-    let summary = "Shows a joke from your gist on the break screen. It's the only network call the app makes."
+    let summary = "Shows a joke from the author's gist on the break screen. It's the only network call the app makes."
 
     var cachedText: String? { UserDefaults.standard.string(forKey: Self.cacheKey) }
 
@@ -48,10 +48,12 @@ struct HourlyJoke: OverlayExtension {
         }
     }
 
-    /// The trimmed body of a 2xx response, or nil if it's an error or empty.
+    static let maxLength = 300
+
+    /// The trimmed body of a 2xx response, capped at `maxLength`, or nil if it's an error or empty.
     static func joke(from data: Data, status: Int) -> String? {
         guard (200..<300).contains(status) else { return nil }
         let text = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        return text.isEmpty ? nil : text
+        return text.isEmpty ? nil : String(text.prefix(maxLength))
     }
 }

@@ -37,6 +37,8 @@ final class OverlayWindow: NSPanel {
         extensionLabel.textColor = NSColor.white.withAlphaComponent(0.9)
         extensionLabel.alignment = .center
         extensionLabel.preferredMaxLayoutWidth = 800
+        extensionLabel.maximumNumberOfLines = 4   // a long gist can't push the buttons off screen
+        extensionLabel.lineBreakMode = .byTruncatingTail
         extensionLabel.isSelectable = false
         extensionLabel.isEditable = false
         extensionLabel.isHidden = true   // hidden views are detached from the stack, so layout is unchanged
@@ -117,6 +119,7 @@ final class OverlayController: NSObject {
     private let onSnooze: () -> Void
     private let snoozeSeconds: () -> TimeInterval
     private var extensionTexts: [String: String] = [:]   // by extension id
+    private var extensionFetches: [Task<Void, Never>] = []
     private lazy var escape = HotKey(keyCode: kVK_Escape) { [weak self] in self?.onBackToWork() }
 
     init(snoozeSeconds: @escaping () -> TimeInterval, onBackToWork: @escaping () -> Void, onSnooze: @escaping () -> Void) {
@@ -162,6 +165,8 @@ final class OverlayController: NSObject {
             NSWorkspace.shared.notificationCenter.removeObserver(self, name: name, object: nil)
         }
         raiseObserversActive = false
+        extensionFetches.forEach { $0.cancel() }
+        extensionFetches = []
         windows.forEach { $0.orderOut(nil) }
         windows = []
         log("overlay hidden")
@@ -180,7 +185,7 @@ final class OverlayController: NSObject {
     private func loadExtensions() {
         let enabled = OverlayExtensions.all.filter(\.isEnabled)
         extensionTexts = Dictionary(uniqueKeysWithValues: enabled.compactMap { ext in ext.cachedText.map { (ext.id, $0) } })
-        for ext in enabled {
+        extensionFetches = enabled.map { ext in
             Task { [weak self] in
                 guard let text = await ext.fetch(), let self, self.isShowing else { return }
                 self.extensionTexts[ext.id] = text
