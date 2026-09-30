@@ -148,7 +148,7 @@ private struct ExtensionRow: View {
 
     init(_ ext: any OverlayExtension) {
         self.ext = ext
-        _isOn = AppStorage(wrappedValue: true, ext.enabledKey)
+        _isOn = AppStorage(wrappedValue: false, ext.enabledKey)
     }
 
     var body: some View {

@@ -6,12 +6,12 @@ import Testing
 struct ExtensionsTests {
     private let joke = HourlyJoke()
 
-    @Test func hourlyJokeIsEnabledByDefault() {
+    @Test func hourlyJokeIsDisabledByDefault() {
         UserDefaults.standard.removeObject(forKey: joke.enabledKey)
         #expect(joke.enabledKey == "extension.hourlyJoke.enabled")
-        #expect(joke.isEnabled)
-        UserDefaults.standard.set(false, forKey: joke.enabledKey)
         #expect(!joke.isEnabled)
+        UserDefaults.standard.set(true, forKey: joke.enabledKey)
+        #expect(joke.isEnabled)
         UserDefaults.standard.removeObject(forKey: joke.enabledKey)
     }
 

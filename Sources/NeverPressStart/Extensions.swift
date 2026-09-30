@@ -13,14 +13,14 @@ protocol OverlayExtension: Sendable {
 
 extension OverlayExtension {
     var enabledKey: String { "extension.\(id).enabled" }
-    var isEnabled: Bool { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true }
+    var isEnabled: Bool { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? false }
 }
 
 enum OverlayExtensions {
     static let all: [any OverlayExtension] = [HourlyJoke()]
 }
 
-/// A joke from the user's gist, which is updated hourly. The app's only network call.
+/// A joke from the author's gist, which is updated hourly. The app's only network call.
 struct HourlyJoke: OverlayExtension {
     static let url = URL(string: "https://gist.githubusercontent.com/dulangaj/136072f10b7ff4dc59645e6a81519a40/raw/joke.txt")!
     static let cacheKey = "extension.hourlyJoke.cached"
