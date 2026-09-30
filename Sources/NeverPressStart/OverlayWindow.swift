@@ -6,6 +6,7 @@ import Carbon
 /// Never uses native full screen / kiosk mode.
 final class OverlayWindow: NSPanel {
     private let elapsedLabel = NSTextField(labelWithString: "0:00")
+    private let extensionLabel = NSTextField(wrappingLabelWithString: "")
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
@@ -32,6 +33,16 @@ final class OverlayWindow: NSPanel {
         title.isSelectable = false   // no force-click Look Up escape
         title.isEditable = false
 
+        extensionLabel.font = .systemFont(ofSize: 26, weight: .regular)
+        extensionLabel.textColor = NSColor.white.withAlphaComponent(0.9)
+        extensionLabel.alignment = .center
+        extensionLabel.preferredMaxLayoutWidth = 800
+        extensionLabel.maximumNumberOfLines = 4   // a long gist can't push the buttons off screen
+        extensionLabel.cell?.truncatesLastVisibleLine = true   // ellipsis on line 4 only; keeps word wrapping
+        extensionLabel.isSelectable = false
+        extensionLabel.isEditable = false
+        extensionLabel.isHidden = true   // hidden views are detached from the stack, so layout is unchanged
+
         elapsedLabel.font = .monospacedDigitSystemFont(ofSize: 32, weight: .regular)
         elapsedLabel.textColor = NSColor.white.withAlphaComponent(0.8)
         elapsedLabel.isSelectable = false
@@ -45,7 +56,7 @@ final class OverlayWindow: NSPanel {
         snooze.widthAnchor.constraint(equalTo: back.widthAnchor).isActive = true
         snooze.setAccessibilityLabel("Snooze for \(snoozeMinutes) minutes")
 
-        let stack = NSStackView(views: [title, elapsedLabel, buttons])
+        let stack = NSStackView(views: [title, extensionLabel, elapsedLabel, buttons])
         stack.orientation = .vertical
         stack.spacing = 24
         stack.setCustomSpacing(64, after: elapsedLabel)
@@ -58,6 +69,11 @@ final class OverlayWindow: NSPanel {
             stack.centerYAnchor.constraint(equalTo: content.centerYAnchor),
         ])
         contentView = content
+    }
+
+    func setExtensionText(_ text: String?) {
+        extensionLabel.stringValue = text ?? ""
+        extensionLabel.isHidden = text == nil
     }
 
     func update(elapsed: TimeInterval) {
@@ -102,6 +118,8 @@ final class OverlayController: NSObject {
     private let onBackToWork: () -> Void
     private let onSnooze: () -> Void
     private let snoozeSeconds: () -> TimeInterval
+    private var extensionTexts: [String: String] = [:]   // by extension id
+    private var extensionFetches: [Task<Void, Never>] = []
     private lazy var escape = HotKey(keyCode: kVK_Escape) { [weak self] in self?.onBackToWork() }
 
     init(snoozeSeconds: @escaping () -> TimeInterval, onBackToWork: @escaping () -> Void, onSnooze: @escaping () -> Void) {
@@ -119,6 +137,7 @@ final class OverlayController: NSObject {
     var isShowing: Bool { !windows.isEmpty }
 
     func show(since: Date) {
+        if !isShowing { loadExtensions() }   // not on display-change rebuilds
         self.since = since
         windows.forEach { $0.orderOut(nil) }
         let snoozeMinutes = max(1, Int((snoozeSeconds() / 60).rounded()))
@@ -133,6 +152,7 @@ final class OverlayController: NSObject {
             }
             raiseObserversActive = true
         }
+        applyExtensionText()
         refresh()                   // orderFrontRegardless() on every window
         windows.first?.makeKey()    // best effort; the app is never activated
         log("overlay shown on \(windows.count) screen(s)")
@@ -145,6 +165,8 @@ final class OverlayController: NSObject {
             NSWorkspace.shared.notificationCenter.removeObserver(self, name: name, object: nil)
         }
         raiseObserversActive = false
+        extensionFetches.forEach { $0.cancel() }
+        extensionFetches = []
         windows.forEach { $0.orderOut(nil) }
         windows = []
         log("overlay hidden")
@@ -157,6 +179,25 @@ final class OverlayController: NSObject {
             window.update(elapsed: elapsed)
             window.orderFrontRegardless()
         }
+    }
+
+    /// Shows cached text from each enabled extension now, then fresh text as fetches return.
+    private func loadExtensions() {
+        let enabled = OverlayExtensions.all.filter(\.isEnabled)
+        extensionTexts = Dictionary(uniqueKeysWithValues: enabled.compactMap { ext in ext.cachedText.map { (ext.id, $0) } })
+        extensionFetches = enabled.map { ext in
+            Task { [weak self] in
+                guard let text = await ext.fetch(), let self, self.isShowing else { return }
+                self.extensionTexts[ext.id] = text
+                self.applyExtensionText()
+            }
+        }
+    }
+
+    private func applyExtensionText() {
+        let texts = OverlayExtensions.all.compactMap { extensionTexts[$0.id] }
+        let text = texts.isEmpty ? nil : texts.joined(separator: "\n\n")
+        windows.forEach { $0.setExtensionText(text) }
     }
 
     @objc private func raise() {
