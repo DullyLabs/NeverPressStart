@@ -159,26 +159,10 @@ private struct ExtensionRow: View {
     }
 }
 
-private struct SettingsView: View {
+private struct GeneralPane: View {
     @ObservedObject var loginItem: LoginItem
 
     var body: some View {
-        TabView {
-            Tab("General", systemImage: "gearshape") { general }
-            Tab("Extensions", systemImage: "puzzlepiece.extension") { extensions }
-        }
-        .frame(width: 420)
-        .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var extensions: some View {
-        Form {
-            ForEach(OverlayExtensions.all, id: \.id) { ExtensionRow($0) }
-        }
-        .formStyle(.grouped)
-    }
-
-    private var general: some View {
         Form {
             Section {
                 ForEach(Setting.allCases) { NumberRow($0) }
@@ -201,18 +185,63 @@ private struct SettingsView: View {
                 }
             }
         }
-        .formStyle(.grouped)
+        .settingsPane()
     }
 }
 
-/// One reusable Settings window hosting the SwiftUI form.
+private struct ExtensionsPane: View {
+    var body: some View {
+        Form {
+            ForEach(OverlayExtensions.all, id: \.id) { ExtensionRow($0) }
+        }
+        .settingsPane()
+    }
+}
+
+private extension View {
+    func settingsPane() -> some View {
+        formStyle(.grouped).frame(width: 420).fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Toolbar pane switcher (HIG Settings) that remembers the last viewed pane.
+private final class SettingsTabViewController: NSTabViewController {
+    private static let paneKey = "settingsPane"
+
+    init(panes: [(title: String, symbol: String, view: AnyView)]) {
+        super.init(nibName: nil, bundle: nil)
+        tabStyle = .toolbar
+        let saved = UserDefaults.standard.integer(forKey: Self.paneKey)
+        for pane in panes {
+            let host = NSHostingController(rootView: pane.view)
+            host.sizingOptions = .preferredContentSize
+            host.title = pane.title
+            let item = NSTabViewItem(viewController: host)
+            item.image = NSImage(systemSymbolName: pane.symbol, accessibilityDescription: pane.title)
+            addTabViewItem(item)
+        }
+        selectedTabViewItemIndex = panes.indices.contains(saved) ? saved : 0
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
+        super.tabView(tabView, didSelect: tabViewItem)
+        UserDefaults.standard.set(selectedTabViewItemIndex, forKey: Self.paneKey)
+    }
+}
+
+/// One reusable Settings window hosting the SwiftUI panes.
 @MainActor
 final class SettingsWindowController: NSWindowController {
     private let loginItem = LoginItem()
 
     init() {
-        let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(loginItem: loginItem)))
-        window.title = "Never Press Start Settings"
+        let window = NSWindow(contentViewController: SettingsTabViewController(panes: [
+            ("General", "gearshape", AnyView(GeneralPane(loginItem: loginItem))),
+            ("Extensions", "puzzlepiece.extension", AnyView(ExtensionsPane())),
+        ]))
+        window.toolbarStyle = .preference
         window.styleMask = [.titled, .closable]
         window.isReleasedWhenClosed = false
         window.center()
