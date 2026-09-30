@@ -168,12 +168,13 @@ final class DrinkWater: OverlayExtension {
         button.controlSize = .large
         button.tintProminence = .none
         button.font = .systemFont(ofSize: 18, weight: .semibold)
-        button.image = NSImage(systemSymbolName: "drop.fill", accessibilityDescription: nil)
-        button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
-            .applying(.init(paletteColors: [.systemCyan]))
+        button.image = Self.dropImage
         button.imagePosition = .imageLeading
-        button.imageHugsTitle = true
-        button.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        button.imageHugsTitle = true   // false pins the drop to the capsule's edge
+        NSLayoutConstraint.activate([
+            button.heightAnchor.constraint(equalToConstant: 44),
+            button.widthAnchor.constraint(greaterThanOrEqualToConstant: 190),
+        ])
 
         let label = NSTextField(labelWithString: "")
         label.font = .monospacedDigitSystemFont(ofSize: 22, weight: .regular)
@@ -188,6 +189,16 @@ final class DrinkWater: OverlayExtension {
         row.alignment = .centerY
         return row
     }
+
+    /// Cyan drop with 8 pt of trailing space, so the button leaves a gap before its title.
+    private static let dropImage: NSImage = {
+        let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .semibold).applying(.init(paletteColors: [.systemCyan]))
+        let drop = NSImage(systemSymbolName: "drop.fill", accessibilityDescription: nil)!.withSymbolConfiguration(config)!
+        return NSImage(size: NSSize(width: drop.size.width + 8, height: drop.size.height), flipped: false) { _ in
+            drop.draw(in: NSRect(origin: .zero, size: drop.size))
+            return true
+        }
+    }()
 
     private var today: String { Self.day(for: now(), calendar: calendar) }
 
