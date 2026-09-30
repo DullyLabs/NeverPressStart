@@ -63,7 +63,7 @@ final class HourlyJoke: OverlayExtension {
     let summary = "Shows a joke from the author's gist on the break screen. It's the only network call the app makes."
 
     private let labels = NSHashTable<NSTextField>.weakObjects()
-    private var fetch: Task<Void, Never>?
+    private var fetchTask: Task<Void, Never>?
     private var text: String? { didSet { labels.allObjects.forEach(apply) } }
 
     func makeOverlayView() -> NSView {
@@ -76,7 +76,7 @@ final class HourlyJoke: OverlayExtension {
     /// Shows the cached joke now, then the fresh one when the fetch returns.
     func overlayWillShow() {
         text = storage.string("cached")
-        fetch = Task { [weak self, storage] in
+        fetchTask = Task { [weak self, storage] in
             guard let joke = await Self.fetch(), !Task.isCancelled else { return }
             storage.set(joke, "cached")
             self?.text = joke
@@ -84,8 +84,8 @@ final class HourlyJoke: OverlayExtension {
     }
 
     func overlayDidHide() {
-        fetch?.cancel()
-        fetch = nil
+        fetchTask?.cancel()
+        fetchTask = nil
     }
 
     private func apply(to label: NSTextField) {
@@ -129,7 +129,8 @@ final class DrinkWater: OverlayExtension {
     private let calendar: Calendar
     private let labels = NSHashTable<NSTextField>.weakObjects()
 
-    init(defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init, calendar: Calendar = .current) {
+    init(defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init,
+         calendar: Calendar = .autoupdatingCurrent) {
         storage = ExtensionStorage(id: "drinkWater", defaults: defaults)
         self.now = now
         self.calendar = calendar
@@ -149,7 +150,7 @@ final class DrinkWater: OverlayExtension {
         let cup = ClosureButton { [weak self] in self?.addGlass() }
         cup.isBordered = false
         cup.image = NSImage(systemSymbolName: "cup.and.saucer.fill", accessibilityDescription: nil)
-        cup.symbolConfiguration = .init(pointSize: 48, weight: .regular)
+        cup.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 48, weight: .regular).applying(.preferringMonochrome())
         cup.contentTintColor = .white
         cup.setAccessibilityLabel("Log a glass of water")
 
