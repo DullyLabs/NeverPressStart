@@ -182,10 +182,11 @@ private struct ExtensionPage: View {
             Section {
                 Toggle("Show on break screen", isOn: $isOn)
             } header: {
-                // In-content back button: this window has no toolbar for NavigationStack's own.
-                HStack {
+                // In-content back button and title: the pane switcher owns the window toolbar and title,
+                // so NavigationStack's own back button and navigationTitle don't fit here.
+                VStack(alignment: .leading, spacing: 8) {
                     Button("Extensions", systemImage: "chevron.left", action: back).buttonStyle(.borderless)
-                    Spacer()
+                    Text(ext.title).font(.title2.bold()).foregroundStyle(.primary)
                 }
             } footer: {
                 Text(ext.summary).foregroundStyle(.secondary)
@@ -195,7 +196,6 @@ private struct ExtensionPage: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle(ext.title)
         .navigationBarBackButtonHidden()
     }
 }
