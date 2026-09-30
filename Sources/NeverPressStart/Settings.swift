@@ -142,6 +142,7 @@ struct NumberRow: View {
     private func commit() { value = min(max(value, range.lowerBound), range.upperBound) }
 }
 
+/// A row in the Extensions list: title, summary and On/Off, opening the extension's page.
 private struct ExtensionRow: View {
     let ext: any OverlayExtension
     @AppStorage private var isOn: Bool
@@ -152,11 +153,50 @@ private struct ExtensionRow: View {
     }
 
     var body: some View {
-        Toggle(isOn: $isOn) {
-            Text(ext.title)
-            Text(ext.summary)
+        NavigationLink(value: ext.id) {
+            HStack {
+                VStack(alignment: .leading) {
+                    Text(ext.title)
+                    Text(ext.summary).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer()
+                Text(isOn ? "On" : "Off").foregroundStyle(.secondary)
+            }
         }
-        if let settings = ext.settingsView { settings.disabled(!isOn) }
+    }
+}
+
+/// An extension's own page: the toggle, its description and any extra settings.
+private struct ExtensionPage: View {
+    let ext: any OverlayExtension
+    let back: () -> Void
+    @AppStorage private var isOn: Bool
+
+    init(_ ext: any OverlayExtension, back: @escaping () -> Void) {
+        (self.ext, self.back) = (ext, back)
+        _isOn = AppStorage(wrappedValue: false, ext.enabledKey)
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Show on break screen", isOn: $isOn)
+            } header: {
+                // In-content back button: this window has no toolbar for NavigationStack's own.
+                HStack {
+                    Button("Extensions", systemImage: "chevron.left", action: back).buttonStyle(.borderless)
+                    Spacer()
+                }
+            } footer: {
+                Text(ext.summary).foregroundStyle(.secondary)
+            }
+            if let settings = ext.settingsView {
+                Section { settings }.disabled(!isOn)
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle(ext.title)
+        .navigationBarBackButtonHidden()
     }
 }
 
@@ -191,11 +231,21 @@ private struct GeneralPane: View {
 }
 
 private struct ExtensionsPane: View {
+    @State private var path: [String] = []
+
     var body: some View {
-        Form {
-            ForEach(OverlayExtensions.all, id: \.id) { ExtensionRow($0) }
+        NavigationStack(path: $path) {
+            Form {
+                ForEach(OverlayExtensions.all, id: \.id) { ExtensionRow($0) }
+            }
+            .formStyle(.grouped)
+            .navigationDestination(for: String.self) { id in
+                if let ext = OverlayExtensions.all.first(where: { $0.id == id }) {
+                    ExtensionPage(ext) { path.removeAll() }
+                }
+            }
         }
-        .settingsPane()
+        .frame(width: 420, height: 320)   // same size for the list and every page, so the window doesn't jump
     }
 }
 
