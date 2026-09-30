@@ -59,6 +59,7 @@ final class OverlayWindow: NSPanel {
             stack.centerYAnchor.constraint(equalTo: content.centerYAnchor),
         ])
         contentView = content
+        initialFirstResponder = snooze   // Full Keyboard Access starts on Snooze, not an extension's control
     }
 
     func update(elapsed: TimeInterval) {

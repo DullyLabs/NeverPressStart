@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// Optional content shown on the break overlay below the title, toggled in Settings > Extensions.
 /// State lives in the extension, never in its views, so every display stays in sync and
@@ -8,6 +9,8 @@ protocol OverlayExtension: AnyObject {
     var storage: ExtensionStorage { get }
     var title: String { get }
     var summary: String { get }
+    /// Extra controls under the toggle in Settings > Extensions.
+    var settingsView: AnyView? { get }
     /// A fresh row for one overlay window. Called for every window on each show and rebuild.
     func makeOverlayView() -> NSView
     /// Once per break, before the views are made; not on screen-change rebuilds.
@@ -19,6 +22,7 @@ extension OverlayExtension {
     var id: String { storage.id }
     var enabledKey: String { storage.key("enabled") }
     var isEnabled: Bool { storage.defaults.object(forKey: enabledKey) as? Bool ?? false }
+    var settingsView: AnyView? { nil }
     func overlayWillShow() {}
     func overlayDidHide() {}
 }
@@ -119,11 +123,11 @@ final class HourlyJoke: OverlayExtension {
     }
 }
 
-/// A cup to tap for each glass of water, with today's count. Resets each local calendar day.
+/// A button to log each glass of water, with today's count against a daily goal. Resets each local calendar day.
 final class DrinkWater: OverlayExtension {
     let storage: ExtensionStorage
     let title = "Drink water"
-    let summary = "Tap the cup on the break screen each time you drink a glass of water."
+    let summary = "Click Log a glass on the break screen each time you drink a glass of water."
 
     private let now: () -> Date
     private let calendar: Calendar
@@ -139,6 +143,16 @@ final class DrinkWater: OverlayExtension {
     /// Glasses logged today; 0 once the stored day has passed.
     var count: Int { Self.count(storedDay: storage.string("day"), storedCount: storage.integer("count"), today: today) }
 
+    static let defaultGoal = 8
+    static let goalRange = 1...20
+
+    var goal: Int { Self.goal(stored: storage.defaults.object(forKey: storage.key("goal")) as? Int) }
+
+    var settingsView: AnyView? {
+        AnyView(NumberRow("Daily goal", key: storage.key("goal"), default: Self.defaultGoal, range: Self.goalRange,
+                          unit: "glasses"))
+    }
+
     func addGlass() {
         let next = count + 1
         storage.set(today, "day")
@@ -147,27 +161,47 @@ final class DrinkWater: OverlayExtension {
     }
 
     func makeOverlayView() -> NSView {
-        let cup = ClosureButton { [weak self] in self?.addGlass() }
-        cup.isBordered = false
-        cup.image = NSImage(systemSymbolName: "cup.and.saucer.fill", accessibilityDescription: nil)
-        cup.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 48, weight: .regular).applying(.preferringMonochrome())
-        cup.contentTintColor = .white
-        cup.setAccessibilityLabel("Log a glass of water")
+        // A smaller sibling of the Snooze / Back to work capsules.
+        let button = ClosureButton { [weak self] in self?.addGlass() }
+        button.title = "Log a glass"
+        button.bezelStyle = .glass
+        button.controlSize = .large
+        button.tintProminence = .none
+        button.font = .systemFont(ofSize: 18, weight: .semibold)
+        button.image = NSImage(systemSymbolName: "drop.fill", accessibilityDescription: nil)
+        button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+            .applying(.init(paletteColors: [.systemCyan]))
+        button.imagePosition = .imageLeading
+        button.imageHugsTitle = true
+        button.heightAnchor.constraint(equalToConstant: 44).isActive = true
 
-        let label = overlayLabel()
+        let label = NSTextField(labelWithString: "")
+        label.font = .monospacedDigitSystemFont(ofSize: 22, weight: .regular)
+        label.textColor = NSColor.white.withAlphaComponent(0.75)
+        label.isSelectable = false
+        label.isEditable = false
         labels.add(label)
         apply(to: label)
 
-        let row = NSStackView(views: [cup, label])
-        row.spacing = 16
+        let row = NSStackView(views: [button, label])
+        row.spacing = 20
+        row.alignment = .centerY
         return row
     }
 
     private var today: String { Self.day(for: now(), calendar: calendar) }
 
     private func apply(to label: NSTextField) {
-        let n = count
-        label.stringValue = "Water today: \(n) \(n == 1 ? "glass" : "glasses")"
+        let (n, goal) = (count, goal)
+        label.stringValue = Self.progress(count: n, goal: goal)
+        label.setAccessibilityValue("\(n) of \(goal) glasses today")
+    }
+
+    static func progress(count: Int, goal: Int) -> String { "\(count) of \(goal) today" }
+
+    /// The stored goal clamped to `goalRange`, or `defaultGoal` if unset.
+    static func goal(stored: Int?) -> Int {
+        min(max(stored ?? defaultGoal, goalRange.lowerBound), goalRange.upperBound)
     }
 
     /// Local calendar day as yyyy-MM-dd.

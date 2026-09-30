@@ -100,7 +100,7 @@ final class LoginItem: ObservableObject {
     }
 }
 
-private struct NumberRow: View {
+struct NumberRow: View {
     let title: String
     let range: ClosedRange<Int>
     var step = 1
@@ -156,6 +156,7 @@ private struct ExtensionRow: View {
             Text(ext.title)
             Text(ext.summary)
         }
+        if let settings = ext.settingsView { settings.disabled(!isOn) }
     }
 }
 

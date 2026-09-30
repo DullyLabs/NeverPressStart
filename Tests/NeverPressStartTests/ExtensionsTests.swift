@@ -73,4 +73,23 @@ struct ExtensionsTests {
         #expect(water.count == 1)
         defaults.removePersistentDomain(forName: "ExtensionsTests.water")
     }
+
+    @Test func waterGoalDefaultsAndClamps() {
+        #expect(DrinkWater.goal(stored: nil) == 8)
+        #expect(DrinkWater.goal(stored: 5) == 5)
+        #expect(DrinkWater.goal(stored: 0) == 1)
+        #expect(DrinkWater.goal(stored: 99) == 20)
+        let defaults = UserDefaults(suiteName: "ExtensionsTests.goal")!
+        defaults.removePersistentDomain(forName: "ExtensionsTests.goal")
+        let water = DrinkWater(defaults: defaults)
+        #expect(water.goal == 8)
+        defaults.set(12, forKey: "extension.drinkWater.goal")
+        #expect(water.goal == 12)
+        defaults.removePersistentDomain(forName: "ExtensionsTests.goal")
+    }
+
+    @Test func waterProgressText() {
+        #expect(DrinkWater.progress(count: 1, goal: 8) == "1 of 8 today")
+        #expect(DrinkWater.progress(count: 10, goal: 8) == "10 of 8 today")
+    }
 }
