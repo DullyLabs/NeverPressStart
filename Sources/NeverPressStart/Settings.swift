@@ -142,10 +142,43 @@ private struct NumberRow: View {
     private func commit() { value = min(max(value, range.lowerBound), range.upperBound) }
 }
 
+private struct ExtensionRow: View {
+    let ext: any OverlayExtension
+    @AppStorage private var isOn: Bool
+
+    init(_ ext: any OverlayExtension) {
+        self.ext = ext
+        _isOn = AppStorage(wrappedValue: true, ext.enabledKey)
+    }
+
+    var body: some View {
+        Toggle(isOn: $isOn) {
+            Text(ext.title)
+            Text(ext.summary)
+        }
+    }
+}
+
 private struct SettingsView: View {
     @ObservedObject var loginItem: LoginItem
 
     var body: some View {
+        TabView {
+            Tab("General", systemImage: "gearshape") { general }
+            Tab("Extensions", systemImage: "puzzlepiece.extension") { extensions }
+        }
+        .frame(width: 420)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var extensions: some View {
+        Form {
+            ForEach(OverlayExtensions.all, id: \.id) { ExtensionRow($0) }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var general: some View {
         Form {
             Section {
                 ForEach(Setting.allCases) { NumberRow($0) }
@@ -169,8 +202,6 @@ private struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420)
-        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
