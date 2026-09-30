@@ -25,7 +25,7 @@ Copy `build/NeverPressStart.app` to /Applications to use it day to day.
 - Settings sets the work period, break snooze, idle threshold and long snooze (in minutes). Changes apply from the next period. The `FOCUS_*` variables below override them.
 - Settings has General and Extensions tabs. Extensions add optional content to the break overlay, below "Take a break".
 - The Hourly joke extension (off by default; turn it on in Settings > Extensions) shows a joke from the author's gist, fetched each time the overlay appears. The last joke is cached, so it shows instantly and offline. It's the only network call the app makes.
-- The Drink water extension (off by default) puts a Log a glass button on the break screen. Click it each time you drink a glass of water to count today's glasses against a daily goal (default 8, set in Settings > Extensions). The count resets each day.
+- The Drink water extension (off by default) puts a water drop on the break screen. Click it each time you drink a glass of water to count today's glasses against a daily goal (default 8, set in Settings > Extensions). The count resets each day.
 - Launch at login is off until you turn it on with the Settings toggle or in System Settings > General > Login Items.
 - Snooze 1 hour is for calls and presentations. The timer stops and nothing happens for an hour, then a fresh 20-minute period starts. Resume ends the snooze early. Idle, sleep and unlock don't cut it short.
 - On the overlay, "Back to work" (or Return) and Esc start a fresh 20-minute period. "Snooze 5 min" starts a 5-minute one.

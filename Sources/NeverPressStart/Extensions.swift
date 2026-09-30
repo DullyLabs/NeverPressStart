@@ -123,15 +123,15 @@ final class HourlyJoke: OverlayExtension {
     }
 }
 
-/// A button to log each glass of water, with today's count against a daily goal. Resets each local calendar day.
+/// A drop to click for each glass of water, filling towards a daily goal. Resets each local calendar day.
 final class DrinkWater: OverlayExtension {
     let storage: ExtensionStorage
     let title = "Drink water"
-    let summary = "Click Log a glass on the break screen each time you drink a glass of water."
+    let summary = "Click the drop on the break screen each time you drink a glass of water."
 
     private let now: () -> Date
     private let calendar: Calendar
-    private let labels = NSHashTable<NSTextField>.weakObjects()
+    private let rows = NSHashTable<WaterRow>.weakObjects()
 
     init(defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init,
          calendar: Calendar = .autoupdatingCurrent) {
@@ -157,58 +157,27 @@ final class DrinkWater: OverlayExtension {
         let next = count + 1
         storage.set(today, "day")
         storage.set(next, "count")
-        labels.allObjects.forEach(apply)
+        rows.allObjects.forEach(update)
     }
 
     func makeOverlayView() -> NSView {
-        // A smaller sibling of the Snooze / Back to work capsules.
-        let button = ClosureButton { [weak self] in self?.addGlass() }
-        button.title = "Log a glass"
-        button.bezelStyle = .glass
-        button.controlSize = .large
-        button.tintProminence = .none
-        button.font = .systemFont(ofSize: 18, weight: .semibold)
-        button.image = Self.dropImage
-        button.imagePosition = .imageLeading
-        button.imageHugsTitle = true   // false pins the drop to the capsule's edge
-        NSLayoutConstraint.activate([
-            button.heightAnchor.constraint(equalToConstant: 44),
-            button.widthAnchor.constraint(greaterThanOrEqualToConstant: 190),
-        ])
-
-        let label = NSTextField(labelWithString: "")
-        label.font = .monospacedDigitSystemFont(ofSize: 22, weight: .regular)
-        label.textColor = NSColor.white.withAlphaComponent(0.75)
-        label.isSelectable = false
-        label.isEditable = false
-        labels.add(label)
-        apply(to: label)
-
-        let row = NSStackView(views: [button, label])
-        row.spacing = 20
-        row.alignment = .centerY
+        let row = WaterRow { [weak self] in self?.addGlass() }
+        rows.add(row)
+        update(row)
         return row
     }
 
-    /// Cyan drop with 8 pt of trailing space, so the button leaves a gap before its title.
-    private static let dropImage: NSImage = {
-        let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .semibold).applying(.init(paletteColors: [.systemCyan]))
-        let drop = NSImage(systemSymbolName: "drop.fill", accessibilityDescription: nil)!.withSymbolConfiguration(config)!
-        return NSImage(size: NSSize(width: drop.size.width + 8, height: drop.size.height), flipped: false) { _ in
-            drop.draw(in: NSRect(origin: .zero, size: drop.size))
-            return true
-        }
-    }()
-
     private var today: String { Self.day(for: now(), calendar: calendar) }
 
-    private func apply(to label: NSTextField) {
-        let (n, goal) = (count, goal)
-        label.stringValue = Self.progress(count: n, goal: goal)
-        label.setAccessibilityValue("\(n) of \(goal) glasses today")
+    private func update(_ row: WaterRow) {
+        let (count, goal) = (count, goal)
+        row.show(progress: Self.progress(count: count, goal: goal), fill: Self.fill(count: count, goal: goal))
     }
 
-    static func progress(count: Int, goal: Int) -> String { "\(count) of \(goal) today" }
+    static func progress(count: Int, goal: Int) -> String { "\(count) of \(goal) glasses" }
+
+    /// Share of the goal reached, 0...1.
+    static func fill(count: Int, goal: Int) -> Double { min(max(Double(count) / Double(max(goal, 1)), 0), 1) }
 
     /// The stored goal clamped to `goalRange`, or `defaultGoal` if unset.
     static func goal(stored: Int?) -> Int {
@@ -223,5 +192,68 @@ final class DrinkWater: OverlayExtension {
 
     static func count(storedDay: String?, storedCount: Int, today: String) -> Int {
         storedDay == today ? storedCount : 0
+    }
+}
+
+/// Round glass button with a drop that fills from the bottom, beside today's count.
+@MainActor
+private final class WaterRow: NSStackView {
+    private let button: ClosureButton
+    private let countLabel = NSTextField(labelWithString: "")
+
+    init(onClick: @escaping () -> Void) {
+        button = ClosureButton(action: onClick)
+        super.init(frame: .zero)
+        button.bezelStyle = .glass
+        button.borderShape = .circle
+        button.tintProminence = .none
+        button.imagePosition = .imageOnly
+        button.setAccessibilityLabel("Log a glass of water")
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 72),
+            button.heightAnchor.constraint(equalToConstant: 72),
+        ])
+
+        countLabel.font = .monospacedDigitSystemFont(ofSize: 28, weight: .semibold)
+        countLabel.textColor = .white
+        let hint = NSTextField(labelWithString: "Click the drop after each glass")
+        hint.font = .systemFont(ofSize: 17, weight: .regular)
+        hint.textColor = NSColor.white.withAlphaComponent(0.6)
+        for label in [countLabel, hint] {
+            label.isSelectable = false
+            label.isEditable = false
+        }
+        let text = NSStackView(views: [countLabel, hint])
+        text.orientation = .vertical
+        text.alignment = .leading
+        text.spacing = 4
+
+        setViews([button, text], in: .leading)
+        spacing = 20
+        alignment = .centerY
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    func show(progress: String, fill: Double) {
+        countLabel.stringValue = progress
+        button.setAccessibilityValue(progress)
+        button.image = Self.drop(fill: fill)
+    }
+
+    /// A grey drop with the bottom `fill` share drawn in cyan. drop.fill has no variable-value draw mode.
+    private static func drop(fill: Double) -> NSImage {
+        let symbol = NSImage(systemSymbolName: "drop.fill", accessibilityDescription: nil)!
+        func tinted(_ color: NSColor) -> NSImage {
+            symbol.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 30, weight: .regular)
+                .applying(.init(paletteColors: [color])))!
+        }
+        let (empty, full) = (tinted(NSColor.white.withAlphaComponent(0.5)), tinted(.systemCyan))
+        return NSImage(size: full.size, flipped: false) { rect in
+            empty.draw(in: rect)
+            NSBezierPath.clip(NSRect(x: 0, y: 0, width: rect.width, height: rect.height * fill))
+            full.draw(in: rect)
+            return true
+        }
     }
 }

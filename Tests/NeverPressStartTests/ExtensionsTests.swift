@@ -89,7 +89,10 @@ struct ExtensionsTests {
     }
 
     @Test func waterProgressText() {
-        #expect(DrinkWater.progress(count: 1, goal: 8) == "1 of 8 today")
-        #expect(DrinkWater.progress(count: 10, goal: 8) == "10 of 8 today")
+        #expect(DrinkWater.progress(count: 1, goal: 8) == "1 of 8 glasses")
+        #expect(DrinkWater.progress(count: 10, goal: 8) == "10 of 8 glasses")
+        #expect(DrinkWater.fill(count: 0, goal: 8) == 0)
+        #expect(DrinkWater.fill(count: 2, goal: 8) == 0.25)
+        #expect(DrinkWater.fill(count: 10, goal: 8) == 1)
     }
 }
