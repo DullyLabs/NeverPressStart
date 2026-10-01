@@ -43,19 +43,40 @@ enum OverlayExtensions {
     static let all: [any OverlayExtension] = [HourlyJoke(), DrinkWater()]
 }
 
-/// White overlay text, word-wrapped and capped at 12 lines so it can't push the buttons off screen.
-@MainActor
-func overlayLabel() -> NSTextField {
+/// White joke text, centered and wrapped at 800 px. Hugs short jokes; longer ones scroll past 4 lines.
+final class JokeView: NSScrollView {
     let label = NSTextField(wrappingLabelWithString: "")
-    label.font = .systemFont(ofSize: 26, weight: .regular)
-    label.textColor = NSColor.white.withAlphaComponent(0.9)
-    label.alignment = .center
-    label.preferredMaxLayoutWidth = 800
-    label.maximumNumberOfLines = 12   // ~372 px; fits 1440x900 with every extension on
-    label.cell?.truncatesLastVisibleLine = true   // ellipsis on the last line only; keeps word wrapping
-    label.isSelectable = false
-    label.isEditable = false
-    return label
+
+    init() {
+        super.init(frame: .zero)
+        let font = NSFont.systemFont(ofSize: 26)
+        label.font = font
+        label.textColor = NSColor.white.withAlphaComponent(0.9)
+        label.alignment = .center
+        label.preferredMaxLayoutWidth = 800
+        label.isSelectable = false
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.setContentCompressionResistancePriority(.required, for: .vertical)   // the scroll view clips, not the label
+        drawsBackground = false
+        hasVerticalScroller = true
+        autohidesScrollers = true
+        documentView = label
+        let fit = heightAnchor.constraint(equalTo: label.heightAnchor)
+        fit.priority = .defaultHigh
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 800),
+            heightAnchor.constraint(lessThanOrEqualToConstant: 4 * NSLayoutManager().defaultLineHeight(for: font)),
+            fit,
+            label.topAnchor.constraint(equalTo: contentView.topAnchor),
+            label.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            label.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+        ])
+    }
+
+    /// Always overlay, so a legacy scroller never takes width or shifts the centered text.
+    override var scrollerStyle: NSScroller.Style { get { .overlay } set {} }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 }
 
 /// A joke from the author's gist, which is updated hourly. The app's only network call.
@@ -66,15 +87,15 @@ final class HourlyJoke: OverlayExtension {
     let title = "Hourly joke"
     let summary = "Shows a joke from the author's gist on the break screen. It's the only network call the app makes."
 
-    private let labels = NSHashTable<NSTextField>.weakObjects()
+    private let views = NSHashTable<JokeView>.weakObjects()
     private var fetchTask: Task<Void, Never>?
-    private var text: String? { didSet { labels.allObjects.forEach(apply) } }
+    private var text: String? { didSet { views.allObjects.forEach(apply) } }
 
     func makeOverlayView() -> NSView {
-        let label = overlayLabel()
-        labels.add(label)
-        apply(to: label)
-        return label
+        let view = JokeView()
+        views.add(view)
+        apply(to: view)
+        return view
     }
 
     /// Shows the cached joke now, then the fresh one when the fetch returns.
@@ -92,9 +113,9 @@ final class HourlyJoke: OverlayExtension {
         fetchTask = nil
     }
 
-    private func apply(to label: NSTextField) {
-        label.stringValue = text ?? ""
-        label.isHidden = text == nil   // hidden views are detached from the stack, so layout is unchanged
+    private func apply(to view: JokeView) {
+        view.label.stringValue = text ?? ""
+        view.isHidden = text == nil   // hidden views are detached from the stack, so layout is unchanged
     }
 
     nonisolated private static func fetch() async -> String? {
