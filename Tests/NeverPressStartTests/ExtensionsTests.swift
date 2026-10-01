@@ -33,13 +33,8 @@ struct ExtensionsTests {
         #expect(HourlyJoke.joke(from: Data("  What am I?\n\n".utf8), status: 200) == "What am I?")
     }
 
-    @Test func jokeIsCapped() {
-        let long = String(repeating: "a", count: HourlyJoke.maxLength + 50)
-        #expect(HourlyJoke.joke(from: Data(long.utf8), status: 200)?.count == HourlyJoke.maxLength)
-    }
-
-    @Test func overlayLabelFitsKnockKnockJoke() {
-        #expect(overlayLabel().maximumNumberOfLines == 8)
+    @Test func overlayLabelFitsLongJoke() {
+        #expect(overlayLabel().maximumNumberOfLines == 12)
     }
 
     @Test func emptyOrErrorResponseIsIgnored() {

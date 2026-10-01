@@ -43,7 +43,7 @@ enum OverlayExtensions {
     static let all: [any OverlayExtension] = [HourlyJoke(), DrinkWater()]
 }
 
-/// White overlay text, word-wrapped and capped at 8 lines so it can't push the buttons off screen.
+/// White overlay text, word-wrapped and capped at 12 lines so it can't push the buttons off screen.
 @MainActor
 func overlayLabel() -> NSTextField {
     let label = NSTextField(wrappingLabelWithString: "")
@@ -51,7 +51,7 @@ func overlayLabel() -> NSTextField {
     label.textColor = NSColor.white.withAlphaComponent(0.9)
     label.alignment = .center
     label.preferredMaxLayoutWidth = 800
-    label.maximumNumberOfLines = 8   // knock-knock jokes are 5; 8 lines (~250 px) fits 1440x900 with every extension on
+    label.maximumNumberOfLines = 12   // ~372 px; fits 1440x900 with every extension on
     label.cell?.truncatesLastVisibleLine = true   // ellipsis on the last line only; keeps word wrapping
     label.isSelectable = false
     label.isEditable = false
@@ -113,13 +113,11 @@ final class HourlyJoke: OverlayExtension {
         }
     }
 
-    nonisolated static let maxLength = 300
-
-    /// The trimmed body of a 2xx response, capped at `maxLength`, or nil if it's an error or empty.
+    /// The trimmed body of a 2xx response, or nil if it's an error or empty.
     nonisolated static func joke(from data: Data, status: Int) -> String? {
         guard (200..<300).contains(status) else { return nil }
         let text = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        return text.isEmpty ? nil : String(text.prefix(maxLength))
+        return text.isEmpty ? nil : text
     }
 }
 
