@@ -10,11 +10,15 @@ final class HotKey {
     // nonisolated(unsafe) so the nonisolated deinit can release them.
     private nonisolated(unsafe) var hotKeyRef: EventHotKeyRef?
     private nonisolated(unsafe) var handlerRef: EventHandlerRef?
+    private static var nextID: UInt32 = 1
+    private let id: UInt32
 
     init(keyCode: Int, modifiers: Int = 0, action: @escaping () -> Void) {
         self.keyCode = UInt32(keyCode)
         self.modifiers = UInt32(modifiers)
         self.action = action
+        id = Self.nextID
+        Self.nextID += 1
     }
 
     deinit {
@@ -27,15 +31,20 @@ final class HotKey {
     func register() {
         guard hotKeyRef == nil else { return }
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        let status = InstallEventHandler(GetApplicationEventTarget(), { _, _, userData in
-            guard let userData else { return OSStatus(eventNotHandledErr) }
+        let status = InstallEventHandler(GetApplicationEventTarget(), { _, event, userData in
+            guard let userData, let event else { return OSStatus(eventNotHandledErr) }
             let hotKey = Unmanaged<HotKey>.fromOpaque(userData).takeUnretainedValue()
+            var pressed = EventHotKeyID()
+            GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
+                              MemoryLayout<EventHotKeyID>.size, nil, &pressed)
+            // Every handler on the app target sees every hot key; pass on the ones that aren't ours.
+            guard pressed.id == hotKey.id else { return OSStatus(eventNotHandledErr) }
             MainActor.assumeIsolated { hotKey.action() }
             return noErr
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), &handlerRef)
         guard status == noErr else { return log("InstallEventHandler failed: \(status)") }
 
-        let id = EventHotKeyID(signature: OSType(0x464F4355), id: 1)   // 'FOCU'
+        let id = EventHotKeyID(signature: OSType(0x464F4355), id: id)   // 'FOCU'
         let regStatus = RegisterEventHotKey(keyCode, modifiers, id, GetApplicationEventTarget(), 0, &hotKeyRef)
         if regStatus != noErr {
             log("RegisterEventHotKey failed: \(regStatus)")

@@ -16,6 +16,8 @@ protocol OverlayExtension: AnyObject {
     /// Once per break, before the views are made; not on screen-change rebuilds.
     func overlayWillShow()
     func overlayDidHide()
+    /// ⌘Z on the overlay.
+    func undo()
 }
 
 extension OverlayExtension {
@@ -25,6 +27,7 @@ extension OverlayExtension {
     var settingsView: AnyView? { nil }
     func overlayWillShow() {}
     func overlayDidHide() {}
+    func undo() {}
 }
 
 /// UserDefaults namespaced to `extension.<id>.<name>`.
@@ -153,15 +156,27 @@ final class DrinkWater: OverlayExtension {
                           unit: "glasses"))
     }
 
-    func addGlass() {
-        let next = count + 1
+    func addGlass() { setCount(count + 1) }
+
+    func removeGlass() { setCount(max(count - 1, 0)) }
+
+    func resetToday() { setCount(0) }
+
+    func undo() { removeGlass() }
+
+    private func setCount(_ count: Int) {
         storage.set(today, "day")
-        storage.set(next, "count")
+        storage.set(count, "count")
         rows.allObjects.forEach(update)
     }
 
     func makeOverlayView() -> NSView {
-        let row = WaterRow { [weak self] in self?.addGlass() }
+        let row = WaterRow(onClick: { [weak self] in self?.addGlass() }, menuItems: { [weak self] in
+            guard let self else { return [] }
+            let any = count > 0
+            return [OverlayMenuItem(title: "Remove a glass", isEnabled: any) { [weak self] in self?.removeGlass() },
+                    OverlayMenuItem(title: "Reset today to 0", isEnabled: any) { [weak self] in self?.resetToday() }]
+        })
         rows.add(row)
         update(row)
         return row
@@ -198,11 +213,11 @@ final class DrinkWater: OverlayExtension {
 /// Round glass button with a drop that fills from the bottom, beside today's count.
 @MainActor
 private final class WaterRow: NSStackView {
-    private let button: ClosureButton
+    private let button: MenuButton
     private let countLabel = NSTextField(labelWithString: "")
 
-    init(onClick: @escaping () -> Void) {
-        button = ClosureButton(action: onClick)
+    init(onClick: @escaping () -> Void, menuItems: @escaping () -> [OverlayMenuItem]) {
+        button = MenuButton(action: onClick, items: menuItems)
         super.init(frame: .zero)
         button.bezelStyle = .glass
         button.borderShape = .circle
@@ -216,7 +231,7 @@ private final class WaterRow: NSStackView {
 
         countLabel.font = .monospacedDigitSystemFont(ofSize: 28, weight: .semibold)
         countLabel.textColor = .white
-        let hint = NSTextField(labelWithString: "Click the drop after each glass")
+        let hint = NSTextField(labelWithString: "Click the drop after each glass, right-click to undo")
         hint.font = .systemFont(ofSize: 17, weight: .regular)
         hint.textColor = NSColor.white.withAlphaComponent(0.6)
         for label in [countLabel, hint] {
