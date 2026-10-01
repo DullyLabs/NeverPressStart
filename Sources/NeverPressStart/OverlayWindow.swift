@@ -86,6 +86,52 @@ class ClosureButton: NSButton {
     @objc private func fire() { handler() }
 }
 
+/// One entry in an overlay context menu.
+struct OverlayMenuItem {
+    let title: String
+    var isEnabled = true
+    let action: () -> Void
+}
+
+/// ClosureButton with a context menu on right-click or ctrl-click, built fresh from `items` each time it opens.
+final class MenuButton: ClosureButton {
+    private let items: () -> [OverlayMenuItem]
+
+    init(action handler: @escaping () -> Void, items: @escaping () -> [OverlayMenuItem]) {
+        self.items = items
+        super.init(action: handler)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        for item in items() {
+            let action = MenuAction(item.action)
+            let menuItem = NSMenuItem(title: item.title, action: #selector(MenuAction.fire), keyEquivalent: "")
+            menuItem.isEnabled = item.isEnabled
+            menuItem.target = action
+            menuItem.representedObject = action   // target is weak
+            menu.addItem(menuItem)
+        }
+        return menu.items.isEmpty ? nil : menu
+    }
+
+    /// AppKit passes a ctrl-click on to mouseDown when there's no menu; it must never count as a click.
+    override func mouseDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.control) { return }
+        super.mouseDown(with: event)
+    }
+}
+
+/// Target for a menu item's closure.
+private final class MenuAction: NSObject {
+    private let handler: () -> Void
+    init(_ handler: @escaping () -> Void) { self.handler = handler }
+    @objc func fire() { handler() }
+}
+
 private final class ActionButton: ClosureButton {
     init(title: String, action handler: @escaping () -> Void) {
         super.init(action: handler)
@@ -114,6 +160,9 @@ final class OverlayController: NSObject {
     private let snoozeSeconds: () -> TimeInterval
     private var extensions: [any OverlayExtension] = []   // enabled ones, fixed for the whole break
     private lazy var escape = HotKey(keyCode: kVK_Escape) { [weak self] in self?.onBackToWork() }
+    private lazy var undo = HotKey(keyCode: kVK_ANSI_Z, modifiers: cmdKey) { [weak self] in
+        self?.extensions.forEach { $0.undo() }
+    }
 
     init(snoozeSeconds: @escaping () -> TimeInterval, onBackToWork: @escaping () -> Void, onSnooze: @escaping () -> Void) {
         self.snoozeSeconds = snoozeSeconds
@@ -125,6 +174,11 @@ final class OverlayController: NSObject {
     private static let raiseTriggers = [
         NSWorkspace.activeSpaceDidChangeNotification,     // e.g. switching into a full-screen Space
         NSWorkspace.didActivateApplicationNotification,   // another app coming forward
+    ]
+    /// A context menu is open: Esc must close it, not end the break.
+    private static let menuTracking: [(Notification.Name, Selector)] = [
+        (NSMenu.didBeginTrackingNotification, #selector(menuDidBeginTracking)),
+        (NSMenu.didEndTrackingNotification, #selector(menuDidEndTracking)),
     ]
 
     var isShowing: Bool { !windows.isEmpty }
@@ -141,11 +195,15 @@ final class OverlayController: NSObject {
             OverlayWindow(screen: $0, extensionViews: extensions.map { $0.makeOverlayView() },
                           onBackToWork: onBackToWork, onSnooze: onSnooze, snoozeMinutes: snoozeMinutes)
         }
-        escape.register()   // global Esc grab only while the overlay is up
+        escape.register()   // global Esc and ⌘Z grabs only while the overlay is up
+        undo.register()
         if !raiseObserversActive {
             // Re-raise immediately instead of waiting for the 1 s timer.
             for name in Self.raiseTriggers {
                 NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(raise), name: name, object: nil)
+            }
+            for (name, selector) in Self.menuTracking {
+                NotificationCenter.default.addObserver(self, selector: selector, name: name, object: nil)
             }
             raiseObserversActive = true
         }
@@ -157,8 +215,12 @@ final class OverlayController: NSObject {
     func hide() {
         guard isShowing else { return }
         escape.unregister()
+        undo.unregister()
         for name in Self.raiseTriggers {
             NSWorkspace.shared.notificationCenter.removeObserver(self, name: name, object: nil)
+        }
+        for (name, _) in Self.menuTracking {
+            NotificationCenter.default.removeObserver(self, name: name, object: nil)
         }
         raiseObserversActive = false
         extensions.forEach { $0.overlayDidHide() }
@@ -176,6 +238,9 @@ final class OverlayController: NSObject {
             window.orderFrontRegardless()
         }
     }
+
+    @objc private func menuDidBeginTracking() { escape.unregister() }
+    @objc private func menuDidEndTracking() { escape.register() }
 
     @objc private func raise() {
         windows.forEach { $0.orderFrontRegardless() }

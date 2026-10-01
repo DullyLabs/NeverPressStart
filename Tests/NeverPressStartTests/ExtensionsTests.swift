@@ -82,6 +82,39 @@ struct ExtensionsTests {
         defaults.removePersistentDomain(forName: "ExtensionsTests.water")
     }
 
+    @Test func removeGlassFloorsAtZeroAndIgnoresStaleDay() {
+        let defaults = UserDefaults(suiteName: "ExtensionsTests.remove")!
+        defaults.removePersistentDomain(forName: "ExtensionsTests.remove")
+        var now = Date(timeIntervalSince1970: 1_790_000_000)
+        let water = DrinkWater(defaults: defaults, now: { now })
+        water.addGlass()
+        water.addGlass()
+        water.removeGlass()
+        #expect(water.count == 1)
+        water.removeGlass()
+        water.removeGlass()
+        #expect(water.count == 0)
+        water.addGlass()
+        now += 86_400
+        water.removeGlass()   // yesterday's glass is not today's
+        #expect(water.count == 0)
+        now -= 86_400
+        #expect(water.count == 0)
+        defaults.removePersistentDomain(forName: "ExtensionsTests.remove")
+    }
+
+    @Test func resetTodayZeroesCount() {
+        let defaults = UserDefaults(suiteName: "ExtensionsTests.reset")!
+        defaults.removePersistentDomain(forName: "ExtensionsTests.reset")
+        let water = DrinkWater(defaults: defaults)
+        water.addGlass()
+        water.addGlass()
+        water.resetToday()
+        #expect(water.count == 0)
+        #expect(DrinkWater(defaults: defaults).count == 0)
+        defaults.removePersistentDomain(forName: "ExtensionsTests.reset")
+    }
+
     @Test func waterGoalDefaultsAndClamps() {
         #expect(DrinkWater.goal(stored: nil) == 8)
         #expect(DrinkWater.goal(stored: 5) == 5)
