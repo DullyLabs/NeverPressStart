@@ -43,7 +43,7 @@ enum OverlayExtensions {
     static let all: [any OverlayExtension] = [HourlyJoke(), DrinkWater()]
 }
 
-/// White overlay text, word-wrapped and capped at 4 lines so it can't push the buttons off screen.
+/// White overlay text, word-wrapped and capped at 8 lines so it can't push the buttons off screen.
 @MainActor
 func overlayLabel() -> NSTextField {
     let label = NSTextField(wrappingLabelWithString: "")
@@ -51,8 +51,8 @@ func overlayLabel() -> NSTextField {
     label.textColor = NSColor.white.withAlphaComponent(0.9)
     label.alignment = .center
     label.preferredMaxLayoutWidth = 800
-    label.maximumNumberOfLines = 4
-    label.cell?.truncatesLastVisibleLine = true   // ellipsis on line 4 only; keeps word wrapping
+    label.maximumNumberOfLines = 8   // knock-knock jokes are 5; 8 lines (~250 px) fits 1440x900 with every extension on
+    label.cell?.truncatesLastVisibleLine = true   // ellipsis on the last line only; keeps word wrapping
     label.isSelectable = false
     label.isEditable = false
     return label

@@ -38,6 +38,10 @@ struct ExtensionsTests {
         #expect(HourlyJoke.joke(from: Data(long.utf8), status: 200)?.count == HourlyJoke.maxLength)
     }
 
+    @Test func overlayLabelFitsKnockKnockJoke() {
+        #expect(overlayLabel().maximumNumberOfLines == 8)
+    }
+
     @Test func emptyOrErrorResponseIsIgnored() {
         #expect(HourlyJoke.joke(from: Data(" \n".utf8), status: 200) == nil)
         #expect(HourlyJoke.joke(from: Data("Not Found".utf8), status: 404) == nil)
