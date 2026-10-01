@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 @testable import NeverPressStart
@@ -33,9 +34,16 @@ struct ExtensionsTests {
         #expect(HourlyJoke.joke(from: Data("  What am I?\n\n".utf8), status: 200) == "What am I?")
     }
 
-    @Test func jokeIsCapped() {
-        let long = String(repeating: "a", count: HourlyJoke.maxLength + 50)
-        #expect(HourlyJoke.joke(from: Data(long.utf8), status: 200)?.count == HourlyJoke.maxLength)
+    @Test func jokeViewHugsShortAndScrollsLong() {
+        let view = JokeView()
+        let stack = NSStackView(views: [view])   // as in the overlay
+        stack.orientation = .vertical
+        view.label.stringValue = "Short."
+        stack.layoutSubtreeIfNeeded()
+        #expect(view.frame.height == view.label.frame.height)
+        view.label.stringValue = String(repeating: "A long joke line. ", count: 40)
+        stack.layoutSubtreeIfNeeded()
+        #expect(view.label.frame.height > view.frame.height)
     }
 
     @Test func emptyOrErrorResponseIsIgnored() {
