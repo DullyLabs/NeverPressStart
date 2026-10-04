@@ -17,7 +17,7 @@ make clean
 
 Copy `build/NeverPressStart.app` to /Applications to use it day to day.
 
-## Behaviour
+## Behavior
 
 - The menu bar shows the time left as `mm:ss`. A pause glyph means paused, a moon means idle, "zzz" with a countdown means a long snooze, and a cup means you're on a break.
 - The menu has Pause/Resume, Take break now, Snooze 1 hour, Reset timer, Settings… (⌘,) and Quit.
