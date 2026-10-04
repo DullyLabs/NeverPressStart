@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#eeeae1">
+<title>Never Press Start · The museum of unpressed buttons</title>
+<link rel="stylesheet" href="style.css"><script src="script.js" defer></script>
+</head>
+<body>
+<header class="masthead"><a class="brand" href="#" aria-label="Never Press Start home"><span class="brand-mark" aria-hidden="true">↗</span> NEVER PRESS START</a><span class="edition">A SMALL APP FOR A VERY HUMAN PROBLEM</span><a class="source-link" href="https://github.com/DullyLabs/NeverPressStart">Get the Mac app <span aria-hidden="true">↗</span></a></header>
+<main>
+<section class="hero" aria-labelledby="title">
+<div class="eyebrow"><span class="dot"></span> PERMANENT COLLECTION <span class="exhibit-number">EXHIBIT NO. 001</span></div>
+<h1 id="title">The museum of<br>unpressed <em>buttons.</em></h1>
+<div class="hero-grid">
+<div class="intro"><p class="lead">For every timer you downloaded.<br>And then forgot to start.</p><p>Never Press Start is a pomodoro for your Mac that notices when you get to work. And starts itself.</p><a class="text-link" href="#how">You do your thing. It does its thing. <span aria-hidden="true">↓</span></a><div class="admission">FREE ADMISSION. NO MOTIVATION REQUIRED.</div></div>
+<div class="specimen"><span class="specimen-note">Please do not press the exhibit.</span><div class="glass"><span class="glass-shine"></span><button id="start-button" class="big-button" aria-describedby="button-response">START</button><span class="specimen-shadow"></span></div><div class="plinth"></div><div class="museum-label"><span class="label-index">001</span><div><h2>The start button</h2><p>Mixed media, good intentions. Circa every Monday.</p><p id="button-response" role="status">Condition: untouched.</p></div></div></div>
+</div>
+<div class="hero-bottom"><span>SCROLL TO QUESTION THE WHOLE PREMISE</span><span aria-hidden="true">↓</span><span>EST. “I'LL START TOMORROW”</span></div>
+</section>
+<section class="confession" aria-labelledby="confession-title"><div class="section-label">A NOTE FROM THE MAKER <span>01 / THE PROBLEM</span></div><h2 id="confession-title">“I never actually switched on the pomodoro timer I had.”</h2><div class="confession-footer"><p>“So I never used it despite telling myself I would.”</p><span class="scribble">Sound familiar?</span></div></section>
+<section class="how" id="how" aria-labelledby="how-title"><div class="section-label">THE BUTTON IS NOW REDUNDANT <span>02 / THE SOLUTION</span></div><h2 id="how-title">Less self-discipline.<br><em>More automatic.</em></h2><div class="steps"><article><span class="step-number">01</span><div class="step-visual keyboard" aria-hidden="true"><span>⌘</span><span>C</span><span>V</span><i>● WORK DETECTED</i></div><h3>You work. It starts.</h3><p>Keyboard. Mouse. The usual stuff. The app detects activity and starts your 20-minute timer. No opening an app. No pressing start.</p></article><article><span class="step-number">02</span><div class="step-visual tiny-screen" aria-hidden="true"><span>Take a break.</span><i>YES, YOU.</i></div><h3>It gets in your face.</h3><p>Time's up. A full-screen break overlay covers every display, even full-screen apps. It stays until you dismiss it.</p><button class="inline-button" id="preview">See what that feels like ↗</button></article><article><span class="step-number">03</span><div class="step-visual away-visual" aria-hidden="true"><span>19:42</span><b>↻</b><span>20:00</span></div><h3>Walk away. That counts.</h3><p>Five minutes without keyboard or mouse activity counts as a break. Come back to a fresh 20 minutes. You don't owe it a button press.</p><button class="inline-button" id="away">Pretend to step away ↗</button></article></div></section>
+<section class="closing"><span class="eyebrow">PLEASE EXIT THROUGH THE GIFT SHOP</span><h2>You have enough<br>things to <em>remember.</em></h2><div class="closing-row"><p>A quiet timer in your menu bar.<br>A very unquiet reminder to take a break.</p><a class="cta" href="https://github.com/DullyLabs/NeverPressStart">Get Never Press Start <span aria-hidden="true">↗</span></a></div><p class="small-print">For macOS · Open source · No macOS permissions needed<br>The link takes you to the source and build instructions.</p></section>
+</main>
+<footer><a class="brand" href="#">NEVER PRESS START</a><span>Made for people, not productivity machines.</span><span>END OF EXHIBITION © 2026</span></footer>
+<aside class="demo-bar" aria-label="Interactive timer demo"><div class="demo-light"></div><div class="demo-copy"><strong id="demo-status">You showed up. It started.</strong><span id="demo-detail">20-second website demo. The Mac app gives you 20 minutes.</span></div><span id="countdown" class="countdown" aria-label="Seconds remaining">00:20</span><button id="pause">Pause demo</button></aside>
+<dialog id="break-dialog" aria-labelledby="break-title" aria-describedby="break-description"><div class="break-content"><span class="eyebrow">NEVER PRESS START / YOUR VERY VISIBLE REMINDER</span><div class="break-asterisk" aria-hidden="true">✳</div><h2 id="break-title">Take a<br><em>break.</em></h2><p id="break-description">The museum can wait.<br>Your shoulders would like a word.</p><button id="dismiss" class="break-dismiss">Okay, back to the museum ↗</button><span class="break-footnote">This is the website demo. In the Mac app, the overlay covers every display.<br>Press Esc or Return to dismiss.</span></div></dialog>
+<noscript><div class="no-script">The interactive exhibit needs JavaScript. The Mac app starts a 20-minute timer automatically when you work.</div></noscript>
+</body></html>
