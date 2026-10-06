@@ -27,7 +27,7 @@ struct ExtensionsTests {
     @Test func registryHasUniqueIDs() {
         let ids = OverlayExtensions.all.map(\.id)
         #expect(Set(ids).count == ids.count)
-        #expect(ids == ["hourlyJoke", "drinkWater"])
+        #expect(ids == ["hourlyJoke", "drinkWater", "breakChime"])
     }
 
     @Test func jokeIsTrimmed() {
@@ -135,5 +135,20 @@ struct ExtensionsTests {
         #expect(DrinkWater.fill(count: 0, goal: 8) == 0)
         #expect(DrinkWater.fill(count: 2, goal: 8) == 0.25)
         #expect(DrinkWater.fill(count: 10, goal: 8) == 1)
+    }
+
+    @Test func chimeSecondsDefaultAndClamp() {
+        #expect(BreakChime.seconds(stored: nil) == 60)
+        #expect(BreakChime.seconds(stored: 90) == 90)
+        #expect(BreakChime.seconds(stored: 0) == 5)
+        #expect(BreakChime.seconds(stored: 99_999) == 3600)
+    }
+
+    @Test func chimeIsCancelledWhenOverlayHides() {
+        let chime = BreakChime(defaults: UserDefaults(suiteName: "ExtensionsTests.chime")!)
+        chime.overlayWillShow()
+        #expect(chime.isScheduled)
+        chime.overlayDidHide()
+        #expect(!chime.isScheduled)
     }
 }

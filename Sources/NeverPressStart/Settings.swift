@@ -180,7 +180,7 @@ private struct ExtensionPage: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Show on break screen", isOn: $isOn)
+                Toggle(ext.toggleTitle, isOn: $isOn)
             } header: {
                 // In-content back button and title: the pane switcher owns the window toolbar and title,
                 // so NavigationStack's own back button and navigationTitle don't fit here.

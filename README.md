@@ -26,6 +26,7 @@ Copy `build/NeverPressStart.app` to /Applications to use it day to day.
 - Settings has General and Extensions tabs. Extensions add optional content to the break overlay, below "Take a break".
 - The Hourly joke extension (off by default; turn it on in Settings > Extensions) shows a joke from the author's gist, fetched each time the overlay appears. The last joke is cached, so it shows instantly and offline. It's the only network call the app makes.
 - The Drink water extension (off by default) puts a water drop on the break screen. Click it each time you drink a glass of water to count today's glasses against a daily goal (default 8, set in Settings > Extensions). Right-click (or ctrl-click) it to remove a glass or reset today to 0, or press ⌘Z to remove one. The count resets each day.
+- The Break chime extension (off by default) plays a soft singing bowl chime once your break has lasted a set time (default 60 seconds, set in Settings > Extensions), so you know it's time to go back. Dismissing the break before then cancels it.
 - Launch at login is off until you turn it on with the Settings toggle or in System Settings > General > Login Items.
 - Snooze 1 hour is for calls and presentations. The timer stops and nothing happens for an hour, then a fresh 20-minute period starts. Resume ends the snooze early. Idle, sleep and unlock don't cut it short.
 - On the overlay, "Back to work" (or Return) and Esc start a fresh 20-minute period. "Snooze 5 min" starts a 5-minute one.
@@ -48,7 +49,7 @@ Copy `build/NeverPressStart.app` to /Applications to use it day to day.
 Environment variables, in seconds:
 
 ```sh
-FOCUS_WORK_SECONDS=5 FOCUS_SNOOZE_SECONDS=10 FOCUS_IDLE_SECONDS=30 FOCUS_LONG_SNOOZE_SECONDS=20 \
+FOCUS_WORK_SECONDS=5 FOCUS_SNOOZE_SECONDS=10 FOCUS_IDLE_SECONDS=30 FOCUS_LONG_SNOOZE_SECONDS=20 FOCUS_BREAK_CHIME_SECONDS=5 \
   build/NeverPressStart.app/Contents/MacOS/NeverPressStart
 ```
 
@@ -57,3 +58,7 @@ State transitions are logged to stderr with timestamps.
 ## Launch at login
 
 `SMAppService.mainApp.register()` adds the app itself as a login item, no helper or LaunchAgent. The Settings toggle shows `SMAppService.mainApp.status`, so it always matches System Settings.
+
+## Credits
+
+The break chime is the first 3 seconds of [Tibetan Bowl Struck #3](https://bigsoundbank.com/tibetan-bowl-struck-3-s2554.html) by Joseph Sardin, BigSoundBank, CC0.

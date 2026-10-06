@@ -14,6 +14,7 @@ app: build
 	cp "$(BIN_DIR)/NeverPressStart" $(APP)/Contents/MacOS/NeverPressStart
 	cp Support/Info.plist $(APP)/Contents/Info.plist
 	cp Support/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
+	cp Support/BreakChime.m4a $(APP)/Contents/Resources/BreakChime.m4a
 	codesign --force --sign - $(APP)
 
 icon:
