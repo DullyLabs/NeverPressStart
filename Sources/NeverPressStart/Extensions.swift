@@ -9,6 +9,8 @@ protocol OverlayExtension: AnyObject {
     var storage: ExtensionStorage { get }
     var title: String { get }
     var summary: String { get }
+    /// The enable toggle's label in Settings > Extensions.
+    var toggleTitle: String { get }
     /// Extra controls under the toggle in Settings > Extensions.
     var settingsView: AnyView? { get }
     /// A fresh row for one overlay window. Called for every window on each show and rebuild.
@@ -24,6 +26,7 @@ extension OverlayExtension {
     var id: String { storage.id }
     var enabledKey: String { storage.key("enabled") }
     var isEnabled: Bool { storage.defaults.object(forKey: enabledKey) as? Bool ?? false }
+    var toggleTitle: String { "Show on break screen" }
     var settingsView: AnyView? { nil }
     func overlayWillShow() {}
     func overlayDidHide() {}
@@ -43,7 +46,7 @@ struct ExtensionStorage {
 
 @MainActor
 enum OverlayExtensions {
-    static let all: [any OverlayExtension] = [HourlyJoke(), DrinkWater()]
+    static let all: [any OverlayExtension] = [HourlyJoke(), DrinkWater(), BreakChime()]
 }
 
 /// White joke text, centered and wrapped at 800 px. Hugs short jokes; longer ones scroll past 4 lines.
@@ -226,6 +229,63 @@ final class DrinkWater: OverlayExtension {
 
     static func count(storedDay: String?, storedCount: Int, today: String) -> Int {
         storedDay == today ? storedCount : 0
+    }
+}
+
+/// Plays a struck singing bowl (Support/BreakChime.m4a) once, a set time after the break screen appears, so you know it's time to go back.
+final class BreakChime: OverlayExtension {
+    let storage: ExtensionStorage
+    let title = "Break chime"
+    let summary = "Plays a soft bowl chime once your break has lasted the set time."
+    let toggleTitle = "Play on break"
+
+    private var timer: Timer?
+
+    init(defaults: UserDefaults = .standard) {
+        storage = ExtensionStorage(id: "breakChime", defaults: defaults)
+    }
+
+    static let defaultSeconds = 60
+    static let secondsRange = 5...3600
+
+    /// FOCUS_BREAK_CHIME_SECONDS, else the stored value clamped to `secondsRange`, else `defaultSeconds`.
+    var seconds: TimeInterval {
+        if let env = ProcessInfo.processInfo.environment["FOCUS_BREAK_CHIME_SECONDS"].flatMap(TimeInterval.init),
+           env > 0 { return env }
+        return TimeInterval(Self.seconds(stored: storage.defaults.object(forKey: storage.key("seconds")) as? Int))
+    }
+
+    static func seconds(stored: Int?) -> Int {
+        min(max(stored ?? defaultSeconds, secondsRange.lowerBound), secondsRange.upperBound)
+    }
+
+    var settingsView: AnyView? {
+        AnyView(NumberRow("Chime after", key: storage.key("seconds"), default: Self.defaultSeconds,
+                          range: Self.secondsRange, step: 5, unit: "sec"))
+    }
+
+    var isScheduled: Bool { timer != nil }
+
+    func makeOverlayView() -> NSView {
+        let view = NSView()
+        view.isHidden = true   // nothing to show; hidden views are detached from the stack
+        return view
+    }
+
+    func overlayWillShow() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.timer = nil
+                let played = NSSound(named: "BreakChime")?.play() ?? false
+                log("break chime \(played ? "played" : "failed: no BreakChime sound")")
+            }
+        }
+    }
+
+    func overlayDidHide() {
+        timer?.invalidate()
+        timer = nil
     }
 }
 
