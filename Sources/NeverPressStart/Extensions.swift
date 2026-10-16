@@ -46,7 +46,7 @@ struct ExtensionStorage {
 
 @MainActor
 enum OverlayExtensions {
-    static let all: [any OverlayExtension] = [HourlyJoke(), Messages(), DrinkWater(), BreakChime()]
+    static let all: [any OverlayExtension] = [HourlyJoke(), Messages(), FocusPicker(), DrinkWater(), BreakChime()]
 }
 
 /// White text, centered and wrapped at 800 px. Hugs short text; longer text scrolls past 4 lines.
@@ -185,6 +185,87 @@ final class Messages: OverlayExtension {
     static func pick(from messages: [String], notRepeating last: String?) -> String? {
         let fresh = messages.filter { $0 != last }
         return (fresh.isEmpty ? messages : fresh).randomElement()
+    }
+}
+
+/// Saved focuses shown as buttons on the break screen; clicking one sets the menu bar's current focus.
+final class FocusPicker: OverlayExtension {
+    let storage: ExtensionStorage
+    let title = "Next focus"
+    let summary = "Pick what to work on next from your saved focuses on the break screen."
+
+    private let rows = NSHashTable<FocusRow>.weakObjects()
+
+    init(defaults: UserDefaults = .standard) {
+        storage = ExtensionStorage(id: "focusPicker", defaults: defaults)
+    }
+
+    /// Saved focuses, trimmed, without blanks or duplicates, at most `maxShown`.
+    var focuses: [String] {
+        var seen = Set<String>()
+        return (storage.defaults.stringArray(forKey: storage.key("list")) ?? [])
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && seen.insert($0).inserted }
+            .prefix(Self.maxShown).map { $0 }
+    }
+
+    static let maxShown = 6
+
+    var current: String { storage.defaults.string(forKey: FocusDisplay.currentKey) ?? "" }
+
+    var settingsView: AnyView? {
+        AnyView(StringListEditor(key: storage.key("list"), defaults: storage.defaults, placeholder: "New focus"))
+    }
+
+    func pick(_ focus: String) {
+        storage.defaults.set(focus, forKey: FocusDisplay.currentKey)
+        rows.allObjects.forEach { $0.select(focus) }
+    }
+
+    func makeOverlayView() -> NSView {
+        let row = FocusRow(focuses: focuses) { [weak self] in self?.pick($0) }
+        row.select(current)
+        row.isHidden = focuses.isEmpty
+        rows.add(row)
+        return row
+    }
+}
+
+/// "Next focus" and a button per saved focus; the current one shows a checkmark.
+@MainActor
+private final class FocusRow: NSStackView {
+    private var buttons: [(focus: String, button: ClosureButton)] = []
+
+    init(focuses: [String], onPick: @escaping (String) -> Void) {
+        super.init(frame: .zero)
+        let label = NSTextField(labelWithString: "Next focus")
+        label.font = .systemFont(ofSize: 17, weight: .regular)
+        label.textColor = NSColor.white.withAlphaComponent(0.6)
+        label.isSelectable = false
+        buttons = focuses.map { focus in
+            let button = ClosureButton { onPick(focus) }
+            button.title = focus
+            button.bezelStyle = .glass
+            button.controlSize = .large
+            button.tintProminence = .none
+            button.imagePosition = .imageLeading
+            return (focus, button)
+        }
+        let row = NSStackView(views: buttons.map(\.button))
+        row.spacing = 12
+        setViews([label, row], in: .center)
+        orientation = .vertical
+        spacing = 8
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    func select(_ focus: String) {
+        for (name, button) in buttons {
+            let selected = name == focus
+            button.image = selected ? NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil) : nil
+            button.setAccessibilityValue(selected ? "Selected" : nil)
+        }
     }
 }
 
