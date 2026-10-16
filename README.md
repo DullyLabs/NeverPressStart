@@ -33,7 +33,7 @@ Copy `build/NeverPressStart.app` to /Applications to use it day to day.
 - The overlay covers the menu bar on purpose, so the menu isn't reachable while it's up. The only ways out are Back to work, Snooze, Esc or Return, or killing the process (for example `pkill NeverPressStart` over SSH).
 - While the overlay is up, it comes back to the front every second, whenever the active Space changes (for example, when you switch into a full-screen app) and whenever displays change.
 - If there's no keyboard or mouse input for 5 minutes, that counts as a break. The timer stops and restarts at 20 minutes when input resumes. Idle time never brings up the overlay.
-- Waking from sleep, waking the screen, unlocking or switching back to the user session also restarts the timer at 20 minutes. A manual pause is kept.
+- Waking from sleep, waking the screen, unlocking or switching back to the user session also restarts the timer at 20 minutes. A manual pause is kept. During a break, a lock or sleep shorter than the idle time (5 minutes) keeps the overlay up, so locking and unlocking right away doesn't skip the break.
 
 ### Why no permissions are needed
 
