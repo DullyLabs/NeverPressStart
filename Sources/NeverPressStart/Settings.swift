@@ -142,6 +142,46 @@ struct NumberRow: View {
     private func commit() { value = min(max(value, range.lowerBound), range.upperBound) }
 }
 
+/// An editable list of strings stored as a UserDefaults array: edit in place, delete, or add at the end.
+struct StringListEditor: View {
+    let key: String
+    let defaults: UserDefaults
+    let placeholder: String
+    @State private var items: [String]
+    @State private var draft = ""
+
+    init(key: String, defaults: UserDefaults = .standard, placeholder: String) {
+        (self.key, self.defaults, self.placeholder) = (key, defaults, placeholder)
+        _items = State(initialValue: defaults.stringArray(forKey: key) ?? [])
+    }
+
+    var body: some View {
+        // Index-safe bindings: a row being edited can outlive its index after a delete.
+        ForEach(Array(items.enumerated()), id: \.offset) { index, _ in
+            HStack {
+                TextField(placeholder, text: Binding(get: { items.indices.contains(index) ? items[index] : "" },
+                                                     set: { if items.indices.contains(index) { items[index] = $0 } }))
+                    .labelsHidden()
+                Button("Delete", systemImage: "minus.circle") { items.remove(at: index) }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+            }
+        }
+        HStack {
+            TextField(placeholder, text: $draft).labelsHidden().onSubmit(add)
+            Button("Add", action: add).disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .onChange(of: items) { _, items in defaults.set(items, forKey: key) }
+    }
+
+    private func add() {
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        items.append(text)
+        draft = ""
+    }
+}
+
 /// A row in the Extensions list: title, summary and On/Off, opening the extension's page.
 private struct ExtensionRow: View {
     let ext: any OverlayExtension

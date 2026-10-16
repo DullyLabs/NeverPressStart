@@ -27,7 +27,7 @@ struct ExtensionsTests {
     @Test func registryHasUniqueIDs() {
         let ids = OverlayExtensions.all.map(\.id)
         #expect(Set(ids).count == ids.count)
-        #expect(ids == ["hourlyJoke", "drinkWater", "breakChime"])
+        #expect(ids == ["hourlyJoke", "messages", "drinkWater", "breakChime"])
     }
 
     @Test func jokeIsTrimmed() {
@@ -150,5 +150,25 @@ struct ExtensionsTests {
         #expect(chime.isScheduled)
         chime.overlayDidHide()
         #expect(!chime.isScheduled)
+    }
+
+    @Test func messagesSkipBlanksAndDontRepeat() {
+        let defaults = UserDefaults(suiteName: "MessagesTests")!
+        defaults.removePersistentDomain(forName: "MessagesTests")
+        let messages = Messages(defaults: defaults)
+        #expect(messages.messages.isEmpty)
+        messages.overlayWillShow()
+        #expect(messages.text == nil)
+
+        defaults.set(["  Breathe ", "", "   ", "Stretch"], forKey: "extension.messages.list")
+        #expect(messages.messages == ["Breathe", "Stretch"])
+        var last: String?
+        for _ in 0..<20 {
+            messages.overlayWillShow()
+            #expect(messages.text != nil && messages.text != last)
+            last = messages.text
+        }
+        #expect(Messages.pick(from: ["Only"], notRepeating: "Only") == "Only")
+        defaults.removePersistentDomain(forName: "MessagesTests")
     }
 }

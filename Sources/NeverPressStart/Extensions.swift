@@ -46,10 +46,10 @@ struct ExtensionStorage {
 
 @MainActor
 enum OverlayExtensions {
-    static let all: [any OverlayExtension] = [HourlyJoke(), DrinkWater(), BreakChime()]
+    static let all: [any OverlayExtension] = [HourlyJoke(), Messages(), DrinkWater(), BreakChime()]
 }
 
-/// White joke text, centered and wrapped at 800 px. Hugs short jokes; longer ones scroll past 4 lines.
+/// White text, centered and wrapped at 800 px. Hugs short text; longer text scrolls past 4 lines.
 final class JokeView: NSScrollView {
     let label = NSTextField(wrappingLabelWithString: "")
 
@@ -145,6 +145,46 @@ final class HourlyJoke: OverlayExtension {
         guard (200..<300).contains(status) else { return nil }
         let text = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         return text.isEmpty ? nil : text
+    }
+}
+
+/// One of the user's own messages, picked at random each break. Kept in UserDefaults; no network.
+final class Messages: OverlayExtension {
+    let storage: ExtensionStorage
+    let title = "Messages"
+    let summary = "Shows one of your own messages or affirmations on the break screen, picked at random."
+
+    private let views = NSHashTable<JokeView>.weakObjects()
+    private(set) var text: String?
+
+    init(defaults: UserDefaults = .standard) {
+        storage = ExtensionStorage(id: "messages", defaults: defaults)
+    }
+
+    /// The saved messages, trimmed, without blanks.
+    var messages: [String] {
+        (storage.defaults.stringArray(forKey: storage.key("list")) ?? [])
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+    }
+
+    var settingsView: AnyView? {
+        AnyView(StringListEditor(key: storage.key("list"), defaults: storage.defaults, placeholder: "New message"))
+    }
+
+    func makeOverlayView() -> NSView {
+        let view = JokeView()
+        views.add(view)
+        view.label.stringValue = text ?? ""
+        view.isHidden = text == nil
+        return view
+    }
+
+    func overlayWillShow() { text = Self.pick(from: messages, notRepeating: text) }
+
+    /// A random message, avoiding the last one shown when there's another to choose.
+    static func pick(from messages: [String], notRepeating last: String?) -> String? {
+        let fresh = messages.filter { $0 != last }
+        return (fresh.isEmpty ? messages : fresh).randomElement()
     }
 }
 
