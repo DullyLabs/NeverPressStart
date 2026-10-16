@@ -248,6 +248,7 @@ private final class FocusRow: NSStackView {
             button.title = focus
             button.bezelStyle = .glass
             button.controlSize = .large
+            button.font = .systemFont(ofSize: 17, weight: .medium)
             button.tintProminence = .none
             button.imagePosition = .imageLeading
             return (focus, button)
