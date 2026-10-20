@@ -2,8 +2,6 @@ import AppKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSTextFieldDelegate {
-    private static let focusKey = "focus"
-
     private let engine = PomodoroEngine()
     private lazy var overlay = OverlayController(
         snoozeSeconds: { [weak self] in self?.engine.snoozeSeconds ?? 0 },
@@ -17,8 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
     private let focusField = NSTextField()
     private var focusAtOpen = ""
     private var focus: String {
-        get { UserDefaults.standard.string(forKey: Self.focusKey) ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: Self.focusKey) }
+        get { UserDefaults.standard.string(forKey: FocusDisplay.currentKey) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: FocusDisplay.currentKey) }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -126,6 +124,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
     func menuWillOpen(_ menu: NSMenu) {
         longSnoozeItem.title = "Snooze \(Self.duration(engine.longSnoozeSeconds))"
         focusAtOpen = focus
+        focusField.stringValue = focus   // the break screen may have changed it
     }
 
     func menuDidClose(_ menu: NSMenu) {
