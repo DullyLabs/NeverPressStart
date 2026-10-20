@@ -348,8 +348,10 @@ final class SettingsWindowController: NSWindowController {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     func show() {
+        // orderFrontRegardless puts it in front even when macOS declines the cooperative activate().
+        window?.orderFrontRegardless()
+        window?.makeKey()
         NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
     }
 
     @objc private func becameKey() { loginItem.refresh() }

@@ -160,6 +160,9 @@ final class OverlayController: NSObject {
     private let snoozeSeconds: () -> TimeInterval
     private var extensions: [any OverlayExtension] = []   // enabled ones, fixed for the whole break
     private lazy var escape = HotKey(keyCode: kVK_Escape) { [weak self] in self?.onBackToWork() }
+    /// Global too, so Return works even when another app's window has keyboard focus.
+    private lazy var returnKey = HotKey(keyCode: kVK_Return) { [weak self] in self?.onBackToWork() }
+    private var dismissKeys: [HotKey] { [escape, returnKey] }
     private lazy var undo = HotKey(keyCode: kVK_ANSI_Z, modifiers: cmdKey) { [weak self] in
         self?.extensions.forEach { $0.undo() }
     }
@@ -175,7 +178,7 @@ final class OverlayController: NSObject {
         NSWorkspace.activeSpaceDidChangeNotification,     // e.g. switching into a full-screen Space
         NSWorkspace.didActivateApplicationNotification,   // another app coming forward
     ]
-    /// A context menu is open: Esc must close it, not end the break.
+    /// A context menu is open: Esc and Return must close it, not end the break.
     private static let menuTracking: [(Notification.Name, Selector)] = [
         (NSMenu.didBeginTrackingNotification, #selector(menuDidBeginTracking)),
         (NSMenu.didEndTrackingNotification, #selector(menuDidEndTracking)),
@@ -195,7 +198,7 @@ final class OverlayController: NSObject {
             OverlayWindow(screen: $0, extensionViews: extensions.map { $0.makeOverlayView() },
                           onBackToWork: onBackToWork, onSnooze: onSnooze, snoozeMinutes: snoozeMinutes)
         }
-        escape.register()   // global Esc and ⌘Z grabs only while the overlay is up
+        dismissKeys.forEach { $0.register() }   // global Esc, Return and ⌘Z grabs only while the overlay is up
         undo.register()
         if !raiseObserversActive {
             // Re-raise immediately instead of waiting for the 1 s timer.
@@ -214,7 +217,7 @@ final class OverlayController: NSObject {
 
     func hide() {
         guard isShowing else { return }
-        escape.unregister()
+        dismissKeys.forEach { $0.unregister() }
         undo.unregister()
         for name in Self.raiseTriggers {
             NSWorkspace.shared.notificationCenter.removeObserver(self, name: name, object: nil)
@@ -239,11 +242,11 @@ final class OverlayController: NSObject {
         }
     }
 
-    @objc private func menuDidBeginTracking() { escape.unregister() }
-    @objc private func menuDidEndTracking() { escape.register() }
+    @objc private func menuDidBeginTracking() { dismissKeys.forEach { $0.unregister() } }
+    @objc private func menuDidEndTracking() { dismissKeys.forEach { $0.register() } }
 
     @objc private func raise() {
         windows.forEach { $0.orderFrontRegardless() }
-        windows.first?.makeKey()   // best effort, so Return still works after Cmd-Tab
+        windows.first?.makeKey()   // best effort
     }
 }

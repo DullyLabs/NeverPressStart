@@ -32,6 +32,9 @@ final class PomodoroEngine: NSObject {
     var onTick: (() -> Void)?
     private var timer: Timer?
     private var lastWakeReset = Date.distantPast
+    /// When a lock or sleep began during the break; only an away period of at least `idleSeconds` ends it.
+    private var awaySince: Date?
+    var now: () -> Date = Date.init
 
     func start() {
         log("config work=\(Int(workSeconds))s snooze=\(Int(snoozeSeconds))s idle=\(Int(idleSeconds))s longSnooze=\(Int(longSnoozeSeconds))s")
@@ -87,6 +90,7 @@ final class PomodoroEngine: NSObject {
     private func transition(to newState: State, reason: String) {
         guard newState != state else { return }
         log("\(Self.name(of: state)) -> \(Self.name(of: newState)): \(reason)")
+        awaySince = nil
         state = newState
         onStateChange?(newState)
     }
@@ -115,28 +119,37 @@ final class PomodoroEngine: NSObject {
         if state == before { onTick?() }   // a transition already triggered onStateChange
     }
 
-    @objc private func away(_ note: Notification) {
-        if case .working = state {
-            transition(to: .idle, reason: note.name.rawValue)
+    @objc func away(_ note: Notification) {
+        switch state {
+        case .working: transition(to: .idle, reason: note.name.rawValue)
+        case .overlay: awaySince = awaySince ?? now()   // once per away period; lock, screen sleep and session resign arrive together
+        default: break
         }
     }
 
-    @objc private func willSleep() {
+    @objc func willSleep() {
         switch state {
         case .paused, .snoozed: break         // keep a manual pause or long snooze as is
+        case .overlay: awaySince = awaySince ?? now()   // a short sleep must not skip the break
         default: transition(to: .asleep, reason: "system going to sleep")
         }
     }
 
-    @objc private func back(_ note: Notification) {
+    @objc func back(_ note: Notification) {
         switch state {
         case .paused, .snoozed: return        // respect a manual pause or long snooze
-        case .working where Date().timeIntervalSince(lastWakeReset) < 2:
+        case .working where now().timeIntervalSince(lastWakeReset) < 2:
             return                            // wake and screen wake (or unlock and session active) arrive together
+        case .overlay:
+            // Nil for the duplicate notifications that follow, so they keep the overlay too.
+            guard let since = awaySince else { return }
+            awaySince = nil
+            let away = now().timeIntervalSince(since)
+            guard away >= idleSeconds else { return log("overlay kept: away \(Int(away))s, under idle \(Int(idleSeconds))s") }
         default: break
         }
         startWork(workSeconds, reason: note.name.rawValue)
-        lastWakeReset = Date()
+        lastWakeReset = now()
     }
 
     /// kCGAnyInputEventType from the HID system state; readable without any TCC permission.
