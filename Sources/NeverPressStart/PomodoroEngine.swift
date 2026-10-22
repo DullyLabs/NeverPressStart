@@ -8,6 +8,15 @@ func log(_ message: String) {
     FileHandle.standardError.write(Data(line.utf8))
 }
 
+/// Calendar events the engine plans breaks around. Each event is claimed once, so it never triggers twice.
+@MainActor
+protocol MeetingSchedule: AnyObject {
+    /// True once per event as it comes within the lead time; marks every event in that window handled.
+    func claimBreak(now: Date) -> Bool
+    /// The latest end among events in progress and not yet claimed, which it marks handled.
+    func claimMeeting(now: Date) -> Date?
+}
+
 /// Work timer state machine: working -> overlay -> working.
 /// Idle, sleep and screen lock count as a break taken and reset the timer.
 @MainActor
@@ -30,11 +39,19 @@ final class PomodoroEngine: NSObject {
     private(set) var state: State = .paused(remaining: 0)
     var onStateChange: ((State) -> Void)?
     var onTick: (() -> Void)?
+    var meetings: MeetingSchedule?
+    /// When the last break was dismissed or idle ended, so a meeting break right after one is skipped.
+    private(set) var lastBreakEnd: Date?
+    /// The idle state came from no input (a real break), not a lock or screen sleep.
+    private var idleIsBreak = false
+    /// The snooze is for a calendar event, not the user's long snooze.
+    private var snoozedForMeeting = false
     private var timer: Timer?
     private var lastWakeReset = Date.distantPast
     /// When a lock or sleep began during the break; only an away period of at least `idleSeconds` ends it.
     private var awaySince: Date?
     var now: () -> Date = Date.init
+    var secondsSinceLastInput: () -> TimeInterval = PomodoroEngine.systemSecondsSinceLastInput
 
     func start() {
         log("config work=\(Int(workSeconds))s snooze=\(Int(snoozeSeconds))s idle=\(Int(idleSeconds))s longSnooze=\(Int(longSnoozeSeconds))s")
@@ -62,7 +79,7 @@ final class PomodoroEngine: NSObject {
     func togglePause() {
         switch state {
         case .working(let deadline):
-            transition(to: .paused(remaining: max(0, deadline.timeIntervalSinceNow)), reason: "paused by user")
+            transition(to: .paused(remaining: max(0, deadline.timeIntervalSince(now()))), reason: "paused by user")
         case .paused(let remaining):
             startWork(remaining > 0 ? remaining : workSeconds, reason: "resumed by user")
         case .snoozed:
@@ -73,18 +90,25 @@ final class PomodoroEngine: NSObject {
     }
 
     func reset() { startWork(workSeconds, reason: "reset by user") }
-    func breakNow() { transition(to: .overlay(since: Date()), reason: "break requested by user") }
-    func backToWork() { startWork(workSeconds, reason: "overlay dismissed") }
-    func snooze() { startWork(snoozeSeconds, reason: "snoozed") }
+    func breakNow() { transition(to: .overlay(since: now()), reason: "break requested by user") }
+    func backToWork() {
+        lastBreakEnd = now()
+        startWork(workSeconds, reason: "overlay dismissed")
+    }
+    func snooze() {
+        lastBreakEnd = now()
+        startWork(snoozeSeconds, reason: "snoozed")
+    }
     func longSnooze() {
-        transition(to: .snoozed(until: Date().addingTimeInterval(longSnoozeSeconds)),
+        snoozedForMeeting = false
+        transition(to: .snoozed(until: now().addingTimeInterval(longSnoozeSeconds)),
                    reason: "long snooze by user (\(Int(longSnoozeSeconds))s)")
     }
 
     // MARK: - Internals
 
     private func startWork(_ seconds: TimeInterval, reason: String) {
-        transition(to: .working(deadline: Date().addingTimeInterval(seconds)), reason: "\(reason) (\(Int(seconds))s)")
+        transition(to: .working(deadline: now().addingTimeInterval(seconds)), reason: "\(reason) (\(Int(seconds))s)")
     }
 
     private func transition(to newState: State, reason: String) {
@@ -95,25 +119,44 @@ final class PomodoroEngine: NSObject {
         onStateChange?(newState)
     }
 
-    @objc private func tick() {
+    @objc func tick() {
         let before = state
+        let now = now()
         switch state {
         case .working(let deadline):
-            let idle = Self.secondsSinceLastInput()
-            if idle >= idleSeconds {
+            let idle = secondsSinceLastInput()
+            if let end = meetings?.claimMeeting(now: now) {
+                snoozedForMeeting = true
+                transition(to: .snoozed(until: end), reason: "meeting until \(end.formatted(date: .omitted, time: .shortened))")
+            } else if meetings?.claimBreak(now: now) == true {
+                if now.timeIntervalSince(lastBreakEnd ?? .distantPast) < idleSeconds {
+                    log("meeting break skipped, just had one")
+                } else {
+                    transition(to: .overlay(since: now), reason: "break before meeting")
+                }
+            } else if idle >= idleSeconds {
+                idleIsBreak = true
                 transition(to: .idle, reason: "no input for \(Int(idle))s, counting as a break")
-            } else if deadline <= Date() {
-                transition(to: .overlay(since: Date()), reason: "work period finished")
+            } else if deadline <= now {
+                transition(to: .overlay(since: now), reason: "work period finished")
+            }
+        case .overlay:
+            if let end = meetings?.claimMeeting(now: now) {
+                snoozedForMeeting = true
+                transition(to: .snoozed(until: end), reason: "meeting until \(end.formatted(date: .omitted, time: .shortened))")
+            } else {
+                _ = meetings?.claimBreak(now: now)   // events coming up during the break count as having had it
             }
         case .idle:
-            if Self.secondsSinceLastInput() < idleSeconds {
+            if secondsSinceLastInput() < idleSeconds {
+                if idleIsBreak { lastBreakEnd = now }
                 startWork(workSeconds, reason: "input resumed after idle")
             }
         case .snoozed(let until):
-            if until <= Date() {
-                startWork(workSeconds, reason: "long snooze finished")
+            if until <= now {
+                startWork(workSeconds, reason: snoozedForMeeting ? "meeting finished" : "long snooze finished")
             }
-        case .paused, .overlay, .asleep:
+        case .paused, .asleep:
             break
         }
         if state == before { onTick?() }   // a transition already triggered onStateChange
@@ -121,7 +164,9 @@ final class PomodoroEngine: NSObject {
 
     @objc func away(_ note: Notification) {
         switch state {
-        case .working: transition(to: .idle, reason: note.name.rawValue)
+        case .working:
+            idleIsBreak = false
+            transition(to: .idle, reason: note.name.rawValue)
         case .overlay: awaySince = awaySince ?? now()   // once per away period; lock, screen sleep and session resign arrive together
         default: break
         }
@@ -153,7 +198,7 @@ final class PomodoroEngine: NSObject {
     }
 
     /// kCGAnyInputEventType from the HID system state; readable without any TCC permission.
-    private static func secondsSinceLastInput() -> TimeInterval {
+    static func systemSecondsSinceLastInput() -> TimeInterval {
         CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: CGEventType(rawValue: ~0)!)
     }
 
