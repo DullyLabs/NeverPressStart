@@ -15,7 +15,8 @@ app: build
 	cp Support/Info.plist $(APP)/Contents/Info.plist
 	cp Support/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
 	cp Support/BreakChime.m4a $(APP)/Contents/Resources/BreakChime.m4a
-	codesign --force --sign - $(APP)
+	codesign --force --options runtime --entitlements Support/NeverPressStart.entitlements \
+		--sign "Apple Development: Dulanga JAYAWARDENA (5D2G58P6ZB)" $(APP)
 
 icon:
 	rm -rf .build/AppIcon.iconset

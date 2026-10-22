@@ -9,7 +9,7 @@ It needs no Accessibility, Input Monitoring, Screen Recording or notification pe
 ## Build and run
 
 ```sh
-make          # swift build -c release, assemble build/NeverPressStart.app, ad-hoc codesign
+make          # swift build -c release, assemble and sign build/NeverPressStart.app
 make icon     # redraw Support/AppIcon.icns from Support/Icon/make-icon.swift
 make run      # build, then launch build/NeverPressStart.app/Contents/MacOS/NeverPressStart
 make clean

@@ -5,7 +5,7 @@ import SwiftUI
 /// The next Apple Calendar event, shown in the menu bar so you can take your break before it.
 /// The app's only permission: full calendar access, asked when this extension is turned on.
 final class CalendarEvents: OverlayExtension {
-    struct Event: Equatable {
+    struct Event {
         let title: String
         let start: Date
         var isAllDay = false
@@ -23,7 +23,7 @@ final class CalendarEvents: OverlayExtension {
     private lazy var store = EKEventStore()
     private var events: [Event] = []
     private var fetchedAt: Date?
-    private let views = NSHashTable<JokeView>.weakObjects()
+    private var hadAccess = false
 
     init() {
         NotificationCenter.default.addObserver(forName: .EKEventStoreChanged, object: nil, queue: .main) { [weak self] _ in
@@ -46,13 +46,17 @@ final class CalendarEvents: OverlayExtension {
     /// The next event within `window`, from a cache refetched at most once a minute or when the store changes.
     func upcoming(now: Date = Date()) -> Event? {
         guard isEnabled, Self.hasAccess else { return nil }
+        if !hadAccess {
+            store.reset()   // a store made before the grant returns no events until reset
+            (hadAccess, fetchedAt) = (true, nil)
+        }
         if fetchedAt.map({ now.timeIntervalSince($0) >= Self.refetchInterval }) ?? true {
             fetchedAt = now
             // Fetch a minute past the window so the cache covers it until the next refetch.
             let predicate = store.predicateForEvents(withStart: now, end: now + Self.window + Self.refetchInterval,
                                                      calendars: nil)
             events = store.events(matching: predicate).filter { $0.status != .canceled }.map {
-                Event(title: $0.title ?? "", start: $0.startDate, isAllDay: $0.isAllDay,
+                Event(title: $0.title.flatMap { $0.isEmpty ? nil : $0 } ?? "Event", start: $0.startDate, isAllDay: $0.isAllDay,
                       declined: $0.attendees?.first(where: \.isCurrentUser)?.participantStatus == .declined)
             }
         }
@@ -72,7 +76,6 @@ final class CalendarEvents: OverlayExtension {
 
     func makeOverlayView() -> NSView {
         let view = JokeView()
-        views.add(view)
         let next = upcoming()
         view.label.stringValue = next.map { "Next: \($0.title) at \($0.start.formatted(date: .omitted, time: .shortened))" } ?? ""
         view.isHidden = next == nil
