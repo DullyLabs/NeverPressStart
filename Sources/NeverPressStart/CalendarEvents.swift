@@ -31,7 +31,8 @@ final class CalendarEvents: OverlayExtension {
         }
     }
 
-    static var hasAccess: Bool { EKEventStore.authorizationStatus(for: .event) == .fullAccess }
+    static var status: EKAuthorizationStatus { EKEventStore.authorizationStatus(for: .event) }
+    static var hasAccess: Bool { status == .fullAccess }
 
     var settingsView: AnyView? { AnyView(CalendarAccessView(enabledKey: enabledKey, request: requestAccess)) }
 
@@ -89,7 +90,7 @@ private struct CalendarAccessView: View {
 
     let request: () async -> Bool
     @AppStorage private var isOn: Bool
-    @State private var hasAccess = CalendarEvents.hasAccess
+    @State private var status = CalendarEvents.status
 
     init(enabledKey: String, request: @escaping () async -> Bool) {
         self.request = request
@@ -98,7 +99,7 @@ private struct CalendarAccessView: View {
 
     var body: some View {
         Group {
-            if !isOn || hasAccess {
+            if !isOn || [.notDetermined, .fullAccess].contains(status) {
                 Text("Reads events from Apple Calendar.").foregroundStyle(.secondary)
             } else {
                 Text("Calendar access is off. Allow Never Press Start in System Settings > Privacy & Security > Calendars.")
@@ -107,10 +108,11 @@ private struct CalendarAccessView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            hasAccess = CalendarEvents.hasAccess
+            status = CalendarEvents.status
         }
         .task(id: isOn) {
-            if isOn && !CalendarEvents.hasAccess { hasAccess = await request() } else { hasAccess = CalendarEvents.hasAccess }
+            if isOn && !CalendarEvents.hasAccess { _ = await request() }
+            status = CalendarEvents.status
         }
     }
 }
