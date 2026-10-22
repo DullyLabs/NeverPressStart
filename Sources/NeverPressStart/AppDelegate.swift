@@ -13,7 +13,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
     private var statusItem: NSStatusItem!
     private let pauseItem = NSMenuItem(title: "Pause", action: #selector(togglePause), keyEquivalent: "")
     private let longSnoozeItem = NSMenuItem(title: "", action: #selector(longSnooze), keyEquivalent: "")
-    private let breakBeforeItem = NSMenuItem(title: "", action: #selector(breakNow), keyEquivalent: "")
     private lazy var settingsWindow = SettingsWindowController()
     private let focusField = NSTextField()
     private var focusAtOpen = ""
@@ -31,7 +30,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
         menu.addItem(makeFocusItem())
         menu.addItem(pauseItem)
         menu.addItem(NSMenuItem(title: "Take break now", action: #selector(breakNow), keyEquivalent: ""))
-        menu.addItem(breakBeforeItem)
         menu.addItem(longSnoozeItem)
         menu.addItem(NSMenuItem(title: "Reset timer", action: #selector(reset), keyEquivalent: ""))
         menu.addItem(.separator())
@@ -44,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
 
         engine.onStateChange = { [weak self] state in self?.stateChanged(state) }
         engine.onTick = { [weak self] in self?.updateStatus() }
+        engine.meetings = OverlayExtensions.calendar
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(screensChanged),
@@ -139,9 +138,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
 
     func menuWillOpen(_ menu: NSMenu) {
         longSnoozeItem.title = "Snooze \(Self.duration(engine.longSnoozeSeconds))"
-        let event = upcomingEvent
-        breakBeforeItem.title = "Break before \(event?.title ?? "")"
-        breakBeforeItem.isHidden = event == nil
         focusAtOpen = focus
     }
 
