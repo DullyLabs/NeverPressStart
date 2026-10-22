@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
     private var statusItem: NSStatusItem!
     private let pauseItem = NSMenuItem(title: "Pause", action: #selector(togglePause), keyEquivalent: "")
     private let longSnoozeItem = NSMenuItem(title: "", action: #selector(longSnooze), keyEquivalent: "")
+    private let breakBeforeItem = NSMenuItem(title: "", action: #selector(breakNow), keyEquivalent: "")
     private lazy var settingsWindow = SettingsWindowController()
     private let focusField = NSTextField()
     private var focusAtOpen = ""
@@ -30,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
         menu.addItem(makeFocusItem())
         menu.addItem(pauseItem)
         menu.addItem(NSMenuItem(title: "Take break now", action: #selector(breakNow), keyEquivalent: ""))
+        menu.addItem(breakBeforeItem)
         menu.addItem(longSnoozeItem)
         menu.addItem(NSMenuItem(title: "Reset timer", action: #selector(reset), keyEquivalent: ""))
         menu.addItem(.separator())
@@ -85,7 +87,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
         updateStatus()
     }
 
+    /// The upcoming calendar event, while working or paused.
+    private var upcomingEvent: CalendarEvents.Event? {
+        switch engine.state {
+        case .working, .paused: return OverlayExtensions.calendar.upcoming()
+        default: return nil
+        }
+    }
+
     private func updateStatus() {
+        if let event = upcomingEvent {
+            setStatus(symbol: "calendar", text: CalendarEvents.menuBarText(event, now: Date()), showsFocus: false)
+            return
+        }
         switch engine.state {
         case .working(let deadline):
             setStatus(symbol: nil, text: Self.mmss(deadline.timeIntervalSinceNow))
@@ -101,10 +115,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
         }
     }
 
-    private func setStatus(symbol: String?, text: String) {
+    private func setStatus(symbol: String?, text: String, showsFocus: Bool = true) {
         guard let button = statusItem.button else { return }
         button.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
-        button.title = [text, FocusDisplay.displayed(focus)].filter { !$0.isEmpty }.joined(separator: " ")
+        button.title = [text, showsFocus ? FocusDisplay.displayed(focus) : ""].filter { !$0.isEmpty }.joined(separator: " ")
     }
 
     private func makeFocusItem() -> NSMenuItem {
@@ -125,6 +139,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
 
     func menuWillOpen(_ menu: NSMenu) {
         longSnoozeItem.title = "Snooze \(Self.duration(engine.longSnoozeSeconds))"
+        let event = upcomingEvent
+        breakBeforeItem.title = "Break before \(event?.title ?? "")"
+        breakBeforeItem.isHidden = event == nil
         focusAtOpen = focus
     }
 

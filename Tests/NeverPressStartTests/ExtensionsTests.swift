@@ -27,7 +27,7 @@ struct ExtensionsTests {
     @Test func registryHasUniqueIDs() {
         let ids = OverlayExtensions.all.map(\.id)
         #expect(Set(ids).count == ids.count)
-        #expect(ids == ["hourlyJoke", "messages", "drinkWater", "breakChime"])
+        #expect(ids == ["hourlyJoke", "messages", "drinkWater", "breakChime", "calendar"])
     }
 
     @Test func jokeIsTrimmed() {
@@ -170,5 +170,25 @@ struct ExtensionsTests {
         }
         #expect(Messages.pick(from: ["Only"], notRepeating: "Only") == "Only")
         defaults.removePersistentDomain(forName: "MessagesTests")
+    }
+
+    @Test func upcomingEventIsEarliestTimedAcceptedWithin20Minutes() {
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        typealias Event = CalendarEvents.Event
+        func upcoming(_ events: [Event]) -> String? { CalendarEvents.upcoming(in: events, now: now)?.title }
+        #expect(upcoming([]) == nil)
+        #expect(upcoming([Event(title: "Edge", start: now + 20 * 60)]) == "Edge")
+        #expect(upcoming([Event(title: "Late", start: now + 20 * 60 + 1)]) == nil)
+        #expect(upcoming([Event(title: "Now", start: now), Event(title: "Started", start: now - 60)]) == nil)
+        #expect(upcoming([Event(title: "Holiday", start: now + 60, isAllDay: true)]) == nil)
+        #expect(upcoming([Event(title: "Declined", start: now + 60, declined: true)]) == nil)
+        #expect(upcoming([Event(title: "Retro", start: now + 600), Event(title: "Standup", start: now + 300),
+                          Event(title: "Declined", start: now + 60, declined: true)]) == "Standup")
+    }
+
+    @Test func eventMenuBarTextRoundsMinutesUp() {
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let event = CalendarEvents.Event(title: "Standup", start: now + 11 * 60 + 30)
+        #expect(CalendarEvents.menuBarText(event, now: now) == "Standup in 12m")
     }
 }
