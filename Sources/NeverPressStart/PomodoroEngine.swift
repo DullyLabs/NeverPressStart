@@ -44,6 +44,8 @@ final class PomodoroEngine: NSObject {
     private(set) var lastBreakEnd: Date?
     /// The idle state came from no input (a real break), not a lock or screen sleep.
     private var idleIsBreak = false
+    /// The snooze is for a calendar event, not the user's long snooze.
+    private var snoozedForMeeting = false
     private var timer: Timer?
     private var lastWakeReset = Date.distantPast
     /// When a lock or sleep began during the break; only an away period of at least `idleSeconds` ends it.
@@ -98,6 +100,7 @@ final class PomodoroEngine: NSObject {
         startWork(snoozeSeconds, reason: "snoozed")
     }
     func longSnooze() {
+        snoozedForMeeting = false
         transition(to: .snoozed(until: now().addingTimeInterval(longSnoozeSeconds)),
                    reason: "long snooze by user (\(Int(longSnoozeSeconds))s)")
     }
@@ -123,6 +126,7 @@ final class PomodoroEngine: NSObject {
         case .working(let deadline):
             let idle = secondsSinceLastInput()
             if let end = meetings?.claimMeeting(now: now) {
+                snoozedForMeeting = true
                 transition(to: .snoozed(until: end), reason: "meeting until \(end.formatted(date: .omitted, time: .shortened))")
             } else if meetings?.claimBreak(now: now) == true {
                 if now.timeIntervalSince(lastBreakEnd ?? .distantPast) < idleSeconds {
@@ -138,6 +142,7 @@ final class PomodoroEngine: NSObject {
             }
         case .overlay:
             if let end = meetings?.claimMeeting(now: now) {
+                snoozedForMeeting = true
                 transition(to: .snoozed(until: end), reason: "meeting until \(end.formatted(date: .omitted, time: .shortened))")
             } else {
                 _ = meetings?.claimBreak(now: now)   // events coming up during the break count as having had it
@@ -149,7 +154,7 @@ final class PomodoroEngine: NSObject {
             }
         case .snoozed(let until):
             if until <= now {
-                startWork(workSeconds, reason: "long snooze finished")
+                startWork(workSeconds, reason: snoozedForMeeting ? "meeting finished" : "long snooze finished")
             }
         case .paused, .asleep:
             break

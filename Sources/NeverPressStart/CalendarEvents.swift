@@ -24,7 +24,7 @@ final class CalendarEvents: OverlayExtension, MeetingSchedule {
     }
     static let refetchInterval: TimeInterval = 60
     /// Less notice than this and the break is skipped: there's no time for one.
-    static let minimumNotice: TimeInterval = 60
+    static var minimumNotice: TimeInterval { min(60, lead / 2) }
 
     let storage: ExtensionStorage
     let title = "Calendar"
