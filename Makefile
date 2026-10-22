@@ -1,5 +1,7 @@
 APP := build/NeverPressStart.app
 BIN_DIR = $(shell swift build -c release --show-bin-path)
+# First Apple Development certificate in the keychain; ad hoc ("-") if there is none.
+SIGN_ID ?= $(shell security find-identity -v -p codesigning | awk '/Apple Development/ {print $$2; exit}')
 
 .PHONY: all build app icon run clean
 
@@ -15,7 +17,8 @@ app: build
 	cp Support/Info.plist $(APP)/Contents/Info.plist
 	cp Support/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
 	cp Support/BreakChime.m4a $(APP)/Contents/Resources/BreakChime.m4a
-	codesign --force --sign - $(APP)
+	codesign --force --options runtime --entitlements Support/NeverPressStart.entitlements \
+		--sign "$(or $(SIGN_ID),-)" $(APP)
 
 icon:
 	rm -rf .build/AppIcon.iconset

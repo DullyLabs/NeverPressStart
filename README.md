@@ -4,12 +4,12 @@ A pomodoro timer for people who keep forgetting to press start.
 
 A macOS menu-bar Pomodoro timer that starts itself. It runs a 20-minute work timer, and when the timer finishes it covers every display with a full-screen "Take a break" overlay, including full-screen apps and every Space. The overlay stays up until you dismiss it.
 
-It needs no macOS permissions: no Accessibility, Input Monitoring, Screen Recording or notifications.
+It needs no Accessibility, Input Monitoring, Screen Recording or notification permissions. Calendar access is the only permission, asked only when you turn on the Calendar extension.
 
 ## Build and run
 
 ```sh
-make          # swift build -c release, assemble build/NeverPressStart.app, ad-hoc codesign
+make          # swift build -c release, assemble and sign build/NeverPressStart.app
 make icon     # redraw Support/AppIcon.icns from Support/Icon/make-icon.swift
 make run      # build, then launch build/NeverPressStart.app/Contents/MacOS/NeverPressStart
 make clean
@@ -28,6 +28,7 @@ Copy `build/NeverPressStart.app` to /Applications to use it day to day.
 - The Messages extension (off by default) shows one of your own messages or affirmations on the break screen, picked at random and not repeating the last one when you have more than one. Add, edit and delete them in Settings > Extensions > Messages. They stay on your Mac.
 - The Drink water extension (off by default) puts a water drop on the break screen. Click it each time you drink a glass of water to count today's glasses against a daily goal (default 8, set in Settings > Extensions). Right-click (or ctrl-click) it to remove a glass or reset today to 0, or press ⌘Z to remove one. The count resets each day.
 - The Break chime extension (off by default) plays a soft singing bowl chime once your break has lasted a set time (default 60 seconds, set in Settings > Extensions), so you know it's time to go back. Dismissing the break before then cancels it.
+- The Calendar extension (off by default) reads Apple Calendar. Once it's on and has access, the break screen comes up by itself 20 minutes before each event, with `Standup in 20 minutes` at the bottom; events that come up during a break count as having had it, and one right after a break is skipped. While an event runs, the timer snoozes until it ends, so you can join it on your Mac; Resume ends the snooze. The menu bar shows the next event within 20 minutes instead of the timer, for example `Standup in 12m`. All-day, declined, cancelled and free events are skipped. Turn off "Take a break 20 minutes before events" in its Settings page to keep only the menu bar text. Turning it on asks for calendar access; if you deny it, its Settings page links to System Settings > Privacy & Security > Calendars.
 - Launch at login is off until you turn it on with the Settings toggle or in System Settings > General > Login Items.
 - Snooze 1 hour is for calls and presentations. The timer stops and nothing happens for an hour, then a fresh 20-minute period starts. Resume ends the snooze early. Idle, sleep and unlock don't cut it short.
 - On the overlay, "Back to work" (or Return) and Esc start a fresh 20-minute period. "Snooze 5 min" starts a 5-minute one.
@@ -36,7 +37,9 @@ Copy `build/NeverPressStart.app` to /Applications to use it day to day.
 - If there's no keyboard or mouse input for 5 minutes, that counts as a break. The timer stops and restarts at 20 minutes when input resumes. Idle time never brings up the overlay.
 - Waking from sleep, waking the screen, unlocking or switching back to the user session also restarts the timer at 20 minutes. A manual pause is kept. During a break, a lock or sleep shorter than the idle time (5 minutes) keeps the overlay up, so locking and unlocking right away doesn't skip the break.
 
-### Why no permissions are needed
+### Why no other permissions are needed
+
+Only the Calendar extension asks for a permission (full calendar access, via EventKit), and only when you turn it on.
 
 | Need | API | Permission |
 | --- | --- | --- |
@@ -51,6 +54,7 @@ Environment variables, in seconds:
 
 ```sh
 FOCUS_WORK_SECONDS=5 FOCUS_SNOOZE_SECONDS=10 FOCUS_IDLE_SECONDS=30 FOCUS_LONG_SNOOZE_SECONDS=20 FOCUS_BREAK_CHIME_SECONDS=5 \
+  FOCUS_CALENDAR_LEAD_SECONDS=120 \
   build/NeverPressStart.app/Contents/MacOS/NeverPressStart
 ```
 

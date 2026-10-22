@@ -46,7 +46,8 @@ struct ExtensionStorage {
 
 @MainActor
 enum OverlayExtensions {
-    static let all: [any OverlayExtension] = [HourlyJoke(), Messages(), DrinkWater(), BreakChime()]
+    static let calendar = CalendarEvents()
+    static let all: [any OverlayExtension] = [HourlyJoke(), Messages(), DrinkWater(), BreakChime(), calendar]
 }
 
 /// White text, centered and wrapped at 800 px. Hugs short text; longer text scrolls past 4 lines.

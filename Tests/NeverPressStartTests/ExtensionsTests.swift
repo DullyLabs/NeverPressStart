@@ -27,7 +27,7 @@ struct ExtensionsTests {
     @Test func registryHasUniqueIDs() {
         let ids = OverlayExtensions.all.map(\.id)
         #expect(Set(ids).count == ids.count)
-        #expect(ids == ["hourlyJoke", "messages", "drinkWater", "breakChime"])
+        #expect(ids == ["hourlyJoke", "messages", "drinkWater", "breakChime", "calendar"])
     }
 
     @Test func jokeIsTrimmed() {
@@ -170,5 +170,99 @@ struct ExtensionsTests {
         }
         #expect(Messages.pick(from: ["Only"], notRepeating: "Only") == "Only")
         defaults.removePersistentDomain(forName: "MessagesTests")
+    }
+
+    private typealias Event = CalendarEvents.Event
+
+    private func event(_ title: String, _ start: Date, id: String? = nil, isAllDay: Bool = false, declined: Bool = false,
+                       isFree: Bool = false) -> Event {
+        Event(id: "\(id ?? title)|\(start.timeIntervalSince1970)", title: title, start: start, end: start + 1800,
+              isAllDay: isAllDay, declined: declined, isFree: isFree)
+    }
+
+    @Test func upcomingEventIsEarliestTimedAcceptedBusyWithin20Minutes() {
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        func upcoming(_ events: [Event]) -> String? { CalendarEvents.upcoming(in: events, now: now)?.title }
+        #expect(upcoming([]) == nil)
+        #expect(upcoming([event("Edge", now + 20 * 60)]) == "Edge")
+        #expect(upcoming([event("Late", now + 20 * 60 + 1)]) == nil)
+        #expect(upcoming([event("Now", now), event("Started", now - 60)]) == nil)
+        #expect(upcoming([event("Holiday", now + 60, isAllDay: true)]) == nil)
+        #expect(upcoming([event("Declined", now + 60, declined: true)]) == nil)
+        #expect(upcoming([event("Free", now + 60, isFree: true)]) == nil)
+        #expect(upcoming([event("Retro", now + 600), event("Standup", now + 300),
+                          event("Declined", now + 60, declined: true)]) == "Standup")
+    }
+
+    @Test func breakIsDueOncePerLeadWindow() {
+        var now = Date(timeIntervalSince1970: 1_790_000_000)
+        var handled = Set<String>()
+        func due(_ events: [Event]) -> Bool {
+            let (due, keys) = CalendarEvents.breakDue(in: events, handled: handled, now: now)
+            handled.formUnion(keys)
+            return due
+        }
+        let events = [event("Standup", now + 20 * 60), event("Retro", now + 25 * 60)]
+        #expect(due(events))
+        #expect(!due(events))
+        now += 5 * 60   // Retro comes within 20 minutes while Standup is still ahead
+        #expect(!due(events))
+        #expect(handled.count == 2)
+
+        // The next occurrence of a recurring event has its own id.
+        now += 86_400
+        #expect(due([event("Standup", now + 20 * 60, id: "Standup")]))
+    }
+
+    @Test func noBreakForShortNoticeOrSkippedEvents() {
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let soon = CalendarEvents.breakDue(in: [event("Standup", now + 59)], handled: [], now: now)
+        #expect(!soon.due && soon.keys == ["b|Standup|\(now.timeIntervalSince1970 + 59)"])
+        #expect(CalendarEvents.breakDue(in: [event("Standup", now + 60)], handled: [], now: now).due)
+        let skipped = [event("Declined", now + 600, declined: true), event("Holiday", now + 600, isAllDay: true),
+                       event("Focus", now + 600, isFree: true)]
+        let result = CalendarEvents.breakDue(in: skipped, handled: [], now: now)
+        #expect(!result.due && result.keys.isEmpty)
+    }
+
+    @Test func inProgressIsStartedAndNotEnded() {
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let titles = CalendarEvents.inProgress(in: [event("Running", now - 60), event("Starting", now),
+                                                    event("Ended", now - 1800), event("Later", now + 1),
+                                                    event("Declined", now - 60, declined: true)], now: now).map(\.title)
+        #expect(titles == ["Running", "Starting"])
+    }
+
+    @Test func breakBeforeDefaultsOnAndTurnsOff() {
+        let defaults = UserDefaults(suiteName: "ExtensionsTests.breakBefore")!
+        defaults.removePersistentDomain(forName: "ExtensionsTests.breakBefore")
+        let calendar = CalendarEvents(defaults: defaults)
+        #expect(calendar.breakBefore)
+        defaults.set(true, forKey: calendar.enabledKey)
+        defaults.set(false, forKey: "extension.calendar.breakBefore")
+        #expect(!calendar.breakBefore)
+        #expect(!calendar.claimBreak(now: Date()))
+        #expect(calendar.claimMeeting(now: Date()) == nil)
+        defaults.removePersistentDomain(forName: "ExtensionsTests.breakBefore")
+    }
+
+    @Test func handledEventsPersistForADay() {
+        let defaults = UserDefaults(suiteName: "ExtensionsTests.handled")!
+        defaults.removePersistentDomain(forName: "ExtensionsTests.handled")
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let recent = "b|Standup|\(now.timeIntervalSince1970 + 600)"
+        let old = "m|Retro|\(now.timeIntervalSince1970 - 86_401)"
+        CalendarEvents(defaults: defaults).markHandled([recent, old], now: now)
+        #expect(CalendarEvents(defaults: defaults).handled == [recent])
+        defaults.removePersistentDomain(forName: "ExtensionsTests.handled")
+    }
+
+    @Test func eventTextRoundsMinutesUp() {
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        #expect(CalendarEvents.menuBarText(event("Standup", now + 11 * 60 + 30), now: now) == "Standup in 12m")
+        #expect(CalendarEvents.overlayText(event("Standup", now + 11 * 60 + 30), now: now) == "Standup in 12 minutes")
+        #expect(CalendarEvents.overlayText(event("Standup", now + 30), now: now) == "Standup in 1 minute")
+        #expect(CalendarEvents.overlayText(event("Standup", now + 60), now: now) == "Standup in 1 minute")
+        #expect(CalendarEvents.overlayText(event("Standup", now + 61), now: now) == "Standup in 2 minutes")
     }
 }

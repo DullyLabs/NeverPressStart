@@ -42,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
 
         engine.onStateChange = { [weak self] state in self?.stateChanged(state) }
         engine.onTick = { [weak self] in self?.updateStatus() }
+        engine.meetings = OverlayExtensions.calendar
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(screensChanged),
@@ -85,7 +86,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
         updateStatus()
     }
 
+    /// The upcoming calendar event, while working or paused.
+    private var upcomingEvent: CalendarEvents.Event? {
+        switch engine.state {
+        case .working, .paused: return OverlayExtensions.calendar.upcoming()
+        default: return nil
+        }
+    }
+
     private func updateStatus() {
+        if let event = upcomingEvent {
+            setStatus(symbol: "calendar", text: CalendarEvents.menuBarText(event, now: Date()), showsFocus: false)
+            return
+        }
         switch engine.state {
         case .working(let deadline):
             setStatus(symbol: nil, text: Self.mmss(deadline.timeIntervalSinceNow))
@@ -101,10 +114,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSText
         }
     }
 
-    private func setStatus(symbol: String?, text: String) {
+    private func setStatus(symbol: String?, text: String, showsFocus: Bool = true) {
         guard let button = statusItem.button else { return }
         button.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
-        button.title = [text, FocusDisplay.displayed(focus)].filter { !$0.isEmpty }.joined(separator: " ")
+        button.title = [text, showsFocus ? FocusDisplay.displayed(focus) : ""].filter { !$0.isEmpty }.joined(separator: " ")
     }
 
     private func makeFocusItem() -> NSMenuItem {
