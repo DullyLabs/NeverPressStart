@@ -52,6 +52,7 @@ final class PomodoroEngine: NSObject {
     private var awaySince: Date?
     var now: () -> Date = Date.init
     var secondsSinceLastInput: () -> TimeInterval = PomodoroEngine.systemSecondsSinceLastInput
+    var isAway: () -> Bool = PomodoroEngine.systemIsAway
 
     func start() {
         log("config work=\(Int(workSeconds))s snooze=\(Int(snoozeSeconds))s idle=\(Int(idleSeconds))s longSnooze=\(Int(longSnoozeSeconds))s")
@@ -125,7 +126,10 @@ final class PomodoroEngine: NSObject {
         switch state {
         case .working(let deadline):
             let idle = secondsSinceLastInput()
-            if let end = meetings?.claimMeeting(now: now) {
+            if isAway() {
+                idleIsBreak = false
+                transition(to: .idle, reason: "screen locked")
+            } else if let end = meetings?.claimMeeting(now: now) {
                 snoozedForMeeting = true
                 transition(to: .snoozed(until: end), reason: "meeting until \(end.formatted(date: .omitted, time: .shortened))")
             } else if meetings?.claimBreak(now: now) == true {
@@ -148,7 +152,7 @@ final class PomodoroEngine: NSObject {
                 _ = meetings?.claimBreak(now: now)   // events coming up during the break count as having had it
             }
         case .idle:
-            if secondsSinceLastInput() < idleSeconds {
+            if !isAway() && secondsSinceLastInput() < idleSeconds {
                 if idleIsBreak { lastBreakEnd = now }
                 startWork(workSeconds, reason: "input resumed after idle")
             }
@@ -200,6 +204,13 @@ final class PomodoroEngine: NSObject {
     /// kCGAnyInputEventType from the HID system state; readable without any TCC permission.
     static func systemSecondsSinceLastInput() -> TimeInterval {
         CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: CGEventType(rawValue: ~0)!)
+    }
+
+    /// The screen is locked or another user is on the console. The lock key is undocumented; absent means unlocked.
+    static func systemIsAway() -> Bool {
+        guard let session = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
+        return session["CGSSessionScreenIsLocked"] as? Bool == true
+            || session[kCGSessionOnConsoleKey as String] as? Bool == false
     }
 
     private static func name(of state: State) -> String {
