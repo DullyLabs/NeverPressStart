@@ -208,8 +208,11 @@ final class PomodoroEngine: NSObject {
 
     /// The screen is locked or another user is on the console. The lock key is undocumented; absent means unlocked.
     static func systemIsAway() -> Bool {
-        guard let session = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
-        return session["CGSSessionScreenIsLocked"] as? Bool == true
+        isAway(session: CGSessionCopyCurrentDictionary() as? [String: Any] ?? [:])
+    }
+
+    static func isAway(session: [String: Any]) -> Bool {
+        session["CGSSessionScreenIsLocked"] as? Bool == true
             || session[kCGSessionOnConsoleKey as String] as? Bool == false
     }
 

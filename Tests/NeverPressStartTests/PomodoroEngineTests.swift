@@ -39,6 +39,13 @@ struct PomodoroEngineTests {
         guard case .working = engine.state else { Issue.record("expected working, got \(engine.state)"); return }
     }
 
+    @Test func sessionAwayState() {
+        #expect(!PomodoroEngine.isAway(session: [:]))
+        #expect(!PomodoroEngine.isAway(session: [kCGSessionOnConsoleKey as String: true]))
+        #expect(PomodoroEngine.isAway(session: ["CGSSessionScreenIsLocked": true, kCGSessionOnConsoleKey as String: true]))
+        #expect(PomodoroEngine.isAway(session: [kCGSessionOnConsoleKey as String: false]))
+    }
+
     @Test func shortLockKeepsOverlay() {
         let (engine, advance) = onBreak()
         engine.away(lock)
