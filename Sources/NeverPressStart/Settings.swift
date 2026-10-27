@@ -129,7 +129,8 @@ struct NumberRow: View {
                     .frame(width: 48)
                     .focused($focused)
                     .onSubmit(commit)
-                Stepper(title, value: $value, in: range, step: step)
+                // Shift-click steps 10x, per the HIG's macOS stepper guidance.
+                Stepper(title, onIncrement: { nudge(1) }, onDecrement: { nudge(-1) })
                     .labelsHidden()
                 if let unit { Text(unit) }
             }
@@ -140,6 +141,11 @@ struct NumberRow: View {
     }
 
     private func commit() { value = min(max(value, range.lowerBound), range.upperBound) }
+
+    private func nudge(_ direction: Int) {
+        value += direction * step * (NSEvent.modifierFlags.contains(.shift) ? 10 : 1)
+        commit()
+    }
 }
 
 /// An editable list of strings stored as a UserDefaults array: edit in place, delete, or add at the end.
