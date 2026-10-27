@@ -286,7 +286,7 @@ final class BreakChime: OverlayExtension {
         storage = ExtensionStorage(id: "breakChime", defaults: defaults)
     }
 
-    static let defaultSeconds = 60
+    static let defaultSeconds = 20
     static let secondsRange = 5...3600
 
     /// FOCUS_BREAK_CHIME_SECONDS, else the stored value clamped to `secondsRange`, else `defaultSeconds`.

@@ -138,7 +138,7 @@ struct ExtensionsTests {
     }
 
     @Test func chimeSecondsDefaultAndClamp() {
-        #expect(BreakChime.seconds(stored: nil) == 60)
+        #expect(BreakChime.seconds(stored: nil) == 20)
         #expect(BreakChime.seconds(stored: 90) == 90)
         #expect(BreakChime.seconds(stored: 0) == 5)
         #expect(BreakChime.seconds(stored: 99_999) == 3600)
