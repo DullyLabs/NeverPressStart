@@ -144,6 +144,14 @@ struct ExtensionsTests {
         #expect(BreakChime.seconds(stored: 99_999) == 3600)
     }
 
+    @Test func durationRowCombinesMinutesAndSeconds() {
+        let range = BreakChime.secondsRange
+        #expect(DurationRow.total(minutes: 1, seconds: 30, in: range) == 90)
+        #expect(DurationRow.total(minutes: 0, seconds: 90, in: range) == 90)
+        #expect(DurationRow.total(minutes: 0, seconds: 0, in: range) == 5)
+        #expect(DurationRow.total(minutes: 120, seconds: 0, in: range) == 3600)
+    }
+
     @Test func chimeIsCancelledWhenOverlayHides() {
         let chime = BreakChime(defaults: UserDefaults(suiteName: "ExtensionsTests.chime")!)
         chime.overlayWillShow()

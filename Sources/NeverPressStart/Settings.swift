@@ -148,6 +148,66 @@ struct NumberRow: View {
     }
 }
 
+/// A seconds value typed as separate minutes and seconds fields, sharing one stepper.
+struct DurationRow: View {
+    private enum Field { case minutes, seconds }
+
+    let title: String
+    let range: ClosedRange<Int>
+    var step = 1
+    @AppStorage private var value: Int
+    @State private var minutes = 0
+    @State private var seconds = 0
+    @FocusState private var focus: Field?
+
+    init(_ title: String, key: String, default defaultValue: Int, range: ClosedRange<Int>, step: Int = 1) {
+        (self.title, self.range, self.step) = (title, range, step)
+        _value = AppStorage(wrappedValue: defaultValue, key)
+    }
+
+    var body: some View {
+        LabeledContent(title) {
+            HStack(spacing: 4) {
+                field("\(title) minutes", $minutes, .minutes)
+                Text("min")
+                field("\(title) seconds", $seconds, .seconds)
+                Text("sec")
+                // Shift-click steps 10x, per the HIG's macOS stepper guidance.
+                Stepper(title, onIncrement: { nudge(1) }, onDecrement: { nudge(-1) })
+                    .labelsHidden()
+            }
+        }
+        .onAppear(perform: split)
+        .onChange(of: value, split)
+        // Commit on leaving a field, so typing 90 seconds becomes 1 min 30 sec.
+        .onChange(of: focus) { commit() }
+    }
+
+    private func field(_ label: String, _ number: Binding<Int>, _ id: Field) -> some View {
+        TextField(label, value: number, format: .number)
+            .labelsHidden()
+            .multilineTextAlignment(.trailing)
+            .frame(width: 36)
+            .focused($focus, equals: id)
+            .onSubmit(commit)
+    }
+
+    static func total(minutes: Int, seconds: Int, in range: ClosedRange<Int>) -> Int {
+        min(max(minutes * 60 + seconds, range.lowerBound), range.upperBound)
+    }
+
+    private func split() { (minutes, seconds) = value.quotientAndRemainder(dividingBy: 60) }
+
+    private func commit() {
+        value = Self.total(minutes: minutes, seconds: seconds, in: range)
+        split()
+    }
+
+    private func nudge(_ direction: Int) {
+        value = Self.total(minutes: 0, seconds: value + direction * step * (NSEvent.modifierFlags.contains(.shift) ? 10 : 1), in: range)
+    }
+}
+
 /// An editable list of strings stored as a UserDefaults array: edit in place, delete, or add at the end.
 struct StringListEditor: View {
     let key: String
