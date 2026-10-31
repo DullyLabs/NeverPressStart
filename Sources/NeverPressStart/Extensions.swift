@@ -368,7 +368,7 @@ final class BreakChime: OverlayExtension {
         storage = ExtensionStorage(id: "breakChime", defaults: defaults)
     }
 
-    static let defaultSeconds = 60
+    static let defaultSeconds = 20
     static let secondsRange = 5...3600
 
     /// FOCUS_BREAK_CHIME_SECONDS, else the stored value clamped to `secondsRange`, else `defaultSeconds`.
@@ -383,8 +383,8 @@ final class BreakChime: OverlayExtension {
     }
 
     var settingsView: AnyView? {
-        AnyView(NumberRow("Chime after", key: storage.key("seconds"), default: Self.defaultSeconds,
-                          range: Self.secondsRange, step: 5, unit: "sec"))
+        AnyView(DurationRow("Chime after", key: storage.key("seconds"), default: Self.defaultSeconds,
+                            range: Self.secondsRange, step: 5))
     }
 
     var isScheduled: Bool { timer != nil }
