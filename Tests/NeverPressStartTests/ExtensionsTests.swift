@@ -27,7 +27,7 @@ struct ExtensionsTests {
     @Test func registryHasUniqueIDs() {
         let ids = OverlayExtensions.all.map(\.id)
         #expect(Set(ids).count == ids.count)
-        #expect(ids == ["hourlyJoke", "messages", "drinkWater", "breakChime", "calendar"])
+        #expect(ids == ["hourlyJoke", "messages", "focusPicker", "drinkWater", "breakChime", "calendar"])
     }
 
     @Test func jokeIsTrimmed() {
@@ -150,6 +150,18 @@ struct ExtensionsTests {
         #expect(chime.isScheduled)
         chime.overlayDidHide()
         #expect(!chime.isScheduled)
+    }
+
+    @Test func focusPickerSetsCurrentFocus() {
+        let defaults = UserDefaults(suiteName: "FocusPickerTests")!
+        defaults.removePersistentDomain(forName: "FocusPickerTests")
+        let picker = FocusPicker(defaults: defaults)
+        defaults.set([" Article ", "", "Email", "Article", "a", "b", "c", "d", "e"], forKey: "extension.focusPicker.list")
+        #expect(picker.focuses == ["Article", "Email", "a", "b", "c", "d"])
+        picker.pick("Email")
+        #expect(defaults.string(forKey: "focus") == "Email")
+        #expect(picker.current == "Email")
+        defaults.removePersistentDomain(forName: "FocusPickerTests")
     }
 
     @Test func messagesSkipBlanksAndDontRepeat() {
