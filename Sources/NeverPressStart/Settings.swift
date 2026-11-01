@@ -62,6 +62,8 @@ enum Setting: String, CaseIterable, Identifiable {
 
 /// How many characters of the current focus the menu bar shows.
 enum FocusDisplay {
+    /// The current focus itself, set from the menu field or the Next focus extension.
+    static let currentKey = "focus"
     static let key = "focusDisplayLength"
     static let title = "Characters shown in menu bar"
     static let defaultLength = 10
