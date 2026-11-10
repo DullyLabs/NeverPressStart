@@ -138,10 +138,18 @@ struct ExtensionsTests {
     }
 
     @Test func chimeSecondsDefaultAndClamp() {
-        #expect(BreakChime.seconds(stored: nil) == 60)
+        #expect(BreakChime.seconds(stored: nil) == 20)
         #expect(BreakChime.seconds(stored: 90) == 90)
         #expect(BreakChime.seconds(stored: 0) == 5)
         #expect(BreakChime.seconds(stored: 99_999) == 3600)
+    }
+
+    @Test func durationRowCombinesMinutesAndSeconds() {
+        let range = BreakChime.secondsRange
+        #expect(DurationRow.total(minutes: 1, seconds: 30, in: range) == 90)
+        #expect(DurationRow.total(minutes: 0, seconds: 90, in: range) == 90)
+        #expect(DurationRow.total(minutes: 0, seconds: 0, in: range) == 5)
+        #expect(DurationRow.total(minutes: 120, seconds: 0, in: range) == 3600)
     }
 
     @Test func chimeIsCancelledWhenOverlayHides() {
