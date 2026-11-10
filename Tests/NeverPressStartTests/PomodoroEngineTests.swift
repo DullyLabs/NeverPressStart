@@ -14,6 +14,7 @@ struct PomodoroEngineTests {
         let engine = PomodoroEngine()
         var clock = Date(timeIntervalSince1970: 1_000_000)
         engine.now = { clock }
+        engine.isAway = { false }
         engine.breakNow()
         return (engine, { clock += $0 })
     }
@@ -21,6 +22,28 @@ struct PomodoroEngineTests {
     private func isOverlay(_ engine: PomodoroEngine) -> Bool {
         if case .overlay = engine.state { return true }
         return false
+    }
+
+    @Test func lockedStaysIdleDespiteInput() {
+        let engine = PomodoroEngine()
+        var locked = false
+        engine.isAway = { locked }
+        engine.secondsSinceLastInput = { 0 }   // the lock keystroke
+        engine.reset()
+        locked = true
+        engine.away(lock)
+        engine.tick()
+        #expect(engine.state == .idle)
+        locked = false
+        engine.tick()
+        guard case .working = engine.state else { Issue.record("expected working, got \(engine.state)"); return }
+    }
+
+    @Test func sessionAwayState() {
+        #expect(!PomodoroEngine.isAway(session: [:]))
+        #expect(!PomodoroEngine.isAway(session: [kCGSessionOnConsoleKey as String: true]))
+        #expect(PomodoroEngine.isAway(session: ["CGSSessionScreenIsLocked": true, kCGSessionOnConsoleKey as String: true]))
+        #expect(PomodoroEngine.isAway(session: [kCGSessionOnConsoleKey as String: false]))
     }
 
     @Test func shortLockKeepsOverlay() {
@@ -103,6 +126,7 @@ struct MeetingTests {
         var clock = t0
         engine.now = { clock }
         engine.secondsSinceLastInput = { 0 }
+        engine.isAway = { false }
         engine.meetings = schedule
         engine.reset()
         return (engine, schedule, { clock += $0 })
