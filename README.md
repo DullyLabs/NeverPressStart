@@ -6,6 +6,8 @@ A macOS menu-bar Pomodoro timer that starts itself. It runs a 20-minute work tim
 
 It needs no Accessibility, Input Monitoring, Screen Recording or notification permissions. Calendar access is the only permission, asked only when you turn on the Calendar extension.
 
+It runs in the App Sandbox, as the Mac App Store requires, so its settings live in `~/Library/Containers/dev.dulangaj.NeverPressStart`.
+
 ## Build and run
 
 ```sh
