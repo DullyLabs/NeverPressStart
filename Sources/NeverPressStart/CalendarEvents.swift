@@ -102,15 +102,18 @@ final class CalendarEvents: OverlayExtension, MeetingSchedule {
     func claimMeeting(now: Date) -> Date? {
         guard breakBefore, let events = cachedEvents(now: now) else { return nil }
         let handled = handled
-        let keys = Self.inProgress(in: events, now: now).filter { !handled.contains("m|" + $0.id) }
-        markHandled(keys.map { "m|" + $0.id }, now: now)
-        return keys.map(\.end).max()
+        let fresh = Self.inProgress(in: events, now: now).filter { !handled.contains(Self.meetingKey($0)) }
+        markHandled(fresh.map(Self.meetingKey), now: now)
+        return fresh.map(\.end).max()
     }
 
-    /// "b|<id>" and "m|<id>" for breaks and meetings already taken care of, kept across relaunches.
+    /// Ends in the event's end, so the key outlives an event longer than a day.
+    static func meetingKey(_ event: Event) -> String { "m|\(event.id)|\(event.end.timeIntervalSince1970)" }
+
+    /// "b|<id>" and "m|<id>|<end>" for breaks and meetings already taken care of, kept across relaunches.
     var handled: Set<String> { Set(storage.defaults.stringArray(forKey: storage.key("handled")) ?? []) }
 
-    /// Adds `keys`, dropping those for events that started more than a day ago.
+    /// Adds `keys`, dropping those whose last part (a break's event start, a meeting's end) is over a day ago.
     func markHandled(_ keys: [String], now: Date) {
         guard !keys.isEmpty else { return }
         let kept = handled.union(keys).filter {

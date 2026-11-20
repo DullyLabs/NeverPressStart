@@ -26,8 +26,6 @@ final class HotKey {
         if let handlerRef { RemoveEventHandler(handlerRef) }
     }
 
-    var isRegistered: Bool { hotKeyRef != nil }
-
     func register() {
         guard hotKeyRef == nil else { return }
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
