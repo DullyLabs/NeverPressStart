@@ -195,7 +195,8 @@ struct DurationRow: View {
     }
 
     static func total(minutes: Int, seconds: Int, in range: ClosedRange<Int>) -> Int {
-        min(max(minutes * 60 + seconds, range.lowerBound), range.upperBound)
+        // In Double: a huge typed number must clamp, not overflow Int.
+        Int(min(max(Double(minutes) * 60 + Double(seconds), Double(range.lowerBound)), Double(range.upperBound)))
     }
 
     private func split() { (minutes, seconds) = value.quotientAndRemainder(dividingBy: 60) }
