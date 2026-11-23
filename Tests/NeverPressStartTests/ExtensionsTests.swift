@@ -150,6 +150,7 @@ struct ExtensionsTests {
         #expect(DurationRow.total(minutes: 0, seconds: 90, in: range) == 90)
         #expect(DurationRow.total(minutes: 0, seconds: 0, in: range) == 5)
         #expect(DurationRow.total(minutes: 120, seconds: 0, in: range) == 3600)
+        #expect(DurationRow.total(minutes: .max, seconds: .max, in: range) == 3600)
     }
 
     @Test func chimeIsCancelledWhenOverlayHides() {
@@ -272,8 +273,12 @@ struct ExtensionsTests {
         let now = Date(timeIntervalSince1970: 1_790_000_000)
         let recent = "b|Standup|\(now.timeIntervalSince1970 + 600)"
         let old = "m|Retro|\(now.timeIntervalSince1970 - 86_401)"
-        CalendarEvents(defaults: defaults).markHandled([recent, old], now: now)
-        #expect(CalendarEvents(defaults: defaults).handled == [recent])
+        // A meeting that started two days ago and is still running stays handled, so Resume isn't undone.
+        let start = now - 2 * 86_400
+        let long = CalendarEvents.meetingKey(Event(id: "Offsite|\(start.timeIntervalSince1970)", title: "Offsite",
+                                                   start: start, end: now + 3600))
+        CalendarEvents(defaults: defaults).markHandled([recent, old, long], now: now)
+        #expect(CalendarEvents(defaults: defaults).handled == [recent, long])
         defaults.removePersistentDomain(forName: "ExtensionsTests.handled")
     }
 
